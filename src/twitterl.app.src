@@ -1,0 +1,23 @@
+{application, twitterl,
+ [
+  {description, "TWITTERL"},
+  {vsn, "1"},
+  {registered, []},
+  {id, "TWITTERL"},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  syntax_tools,
+                  compiler,
+                  sasl,
+                  crypto,
+                  public_key,
+                  inets,
+                  lager,
+                  gproc,
+                  ejson,
+                  oauth
+                 ]},
+  {mod, { twitterl_app, []}},
+  {env, []}
+ ]}.
