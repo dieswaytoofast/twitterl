@@ -2,10 +2,10 @@
 %%% @author Juan Jose Comellas <juanjo@comellas.org>
 %%% @author Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>
 %%% @copyright (C) 2012 Juan Jose Comellas, Mahesh Paolini-Subramanya
-%%% @doc Module serving twitterl_receiver functions
+%%% @doc Module serving twitterl_requestor functions
 %%% @end
 %%%-------------------------------------------------------------------
--module(twitterl_receiver).
+-module(twitterl_requestor).
 
 -author('Juan Jose Comellas <juanjo@comellas.org>').
 -author('Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>').
@@ -16,9 +16,8 @@
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
--export([set_max_id/1, set_since_id/1]).
--export([get_state/0]).
--export([get_request/1, get_request/2, process_url/3, process_url/4]).
+-export([get_request/1, get_request/2, process_request/3, process_request/4,
+         stop_request/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -31,30 +30,12 @@
 %% Includes & Defines
 %% ------------------------------------------------------------------
 -include("defaults.hrl").
--include("twitterl_receiver.hrl").
+-include("twitterl_requestor.hrl").
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-
-%% @doc Set the max_id for the twitter stream
--spec set_max_id(MaxId::integer()) -> {ok, MaxId::integer()} | error().
-set_max_id(MaxId) when is_integer(MaxId) ->
-    TwitterlReceiver = {?TWITTERL_RECEIVER, ?TWITTERL_RECEIVER},
-    twitterl_manager:safe_call(TwitterlReceiver, {set_max_id, MaxId}).
-
-%% @doc Set the since_id for the twitter stream
--spec set_since_id(SinceId::integer()) -> {ok, SinceId::integer()} | error().
-set_since_id(SinceId) when is_integer(SinceId) ->
-    TwitterlReceiver = {?TWITTERL_RECEIVER, ?TWITTERL_RECEIVER},
-    twitterl_manager:safe_call(TwitterlReceiver, {set_since_id, SinceId}).
-
-%% @doc Get the state for the receiver
--spec get_state() -> {ok, #receiver_state{}} | error().
-get_state() ->
-    TwitterlReceiver = {?TWITTERL_RECEIVER, ?TWITTERL_RECEIVER},
-    twitterl_manager:safe_call(TwitterlReceiver, {get_state}).
 
 %% @doc get the http Request associated with the URL
 -spec get_request(URL::string()) -> [{string(), string()}].
@@ -64,38 +45,27 @@ get_request(URL) ->
 %% @doc get the http Request associated with the URL and Params
 -spec get_request(URL::string(), Params::list()) -> [{string(), string()}].
 get_request(URL, Params) ->
-    TwitterlReceiver = {?TWITTERL_RECEIVER, ?TWITTERL_RECEIVER},
-    twitterl_manager:safe_call(TwitterlReceiver, {request, URL, Params}).
+    OAuthData = get_oauth_data(),
+    create_request(OAuthData, URL, Params).
 
 %% @doc Run the request on the URL in stream or REST mode. The result will be
-%%          sent to ReceiverPid
--spec process_url(ReceiverPid::pid(), URL::string(), Type::rest|stream) -> any().
-process_url(ReceiverPid, Type, URL) -> 
-    process_url(ReceiverPid, Type, URL, []).
+%%          sent to Target
+-spec process_request(Target::target(), URL::string(), RequestType::rest|stream) -> any().
+process_request(Target, RequestType, URL) -> 
+    process_request(Target, RequestType, URL, []).
 
 %% @doc Run the request on the URL and Params in stream or REST mode. The result will be
-%%          sent to ReceiverPid
--spec process_url(ReceiverPid::pid(), Type::rest|stream, URL::string(), Params::list()) -> any().
-process_url(ReceiverPid, Type, URL, Params) -> 
+%%          sent to Target
+-spec process_request(Target::target(), RequestType::rest|stream, URL::string(), Params::list()) -> {ok, pid()} | error().
+process_request(Target, RequestType, URL, Params) -> 
+    twitterl_util:validate_request_type(RequestType),
     Request = get_request(URL, Params),
-    case Type of 
-        stream ->
-            _ProcessorPid = twitterl_processor_sup:start_processor(ReceiverPid, Request);
-        _ ->
-		    case httpc:request(get, Request, [{autoredirect, false}], []) of
-		        {ok, {_Result, _Headers, BinBody}} ->
-		            try 
-		                JsonBody= ejson:decode(BinBody),
-		                lager:debug("returning data to:~p, JsonBody:~p~n, BinBody:~p~n", [ReceiverPid, JsonBody, BinBody]),
-		                ReceiverPid ! {data, JsonBody} 
-		            catch
-		                Class:Reason ->
-		                    lager:debug("catch send_data Class:~p~n, Reason:~p~n", [Class, Reason]) 
-		            end;
-		        _Other ->
-		            lager:debug("Rest Request:~p~n failed with Reason:~p~n", [Request, _Other])
-		    end
-    end.
+    twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Request, RequestType, Target}).
+
+%% @doc Stop a given request gracefully
+-spec stop_request(RequestId::request_id()) -> ok.
+stop_request({ServerProcess, RequestPid}) ->
+    gen_server:cast(ServerProcess, {stop_request, RequestPid}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -104,30 +74,10 @@ process_url(ReceiverPid, Type, URL, Params) ->
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
-
 init(_Args) ->
-    twitterl_manager:register_process(?TWITTERL_RECEIVER, ?TWITTERL_RECEIVER),
-    OAuthData = load_tokens(),
-    State = #receiver_state{
-            oauth_data = OAuthData},
+    twitterl_manager:register_process(?TWITTERL_REQUESTOR, ?TWITTERL_REQUESTOR),
+    State = #requestor_state{},
     {ok, State}.
-
-
-handle_call({request, URL, Params}, _From, State) ->
-    OAuthData = State#receiver_state.oauth_data,
-    Request = create_request(OAuthData, URL, Params),
-    {reply, Request, State};
-
-handle_call({set_max_id, MaxId}, _From, State) ->
-    NewState = State#receiver_state{max_id = MaxId},
-    {reply, {ok, MaxId}, NewState};
-
-handle_call({set_since_id, SinceId}, _From, State) ->
-    NewState = State#receiver_state{since_id = SinceId},
-    {reply, {ok, SinceId}, NewState};
-
-handle_call({get_state}, _From, State) ->
-    {reply, {ok, State}, State};
 
 handle_call(_Request, _From, State) ->
     lager:debug("3, ~p~n", [_Request]),
@@ -151,8 +101,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 %% @doc Get the OAuth credentials for the account
--spec load_tokens() -> #twitter_oauth_data{}.
-load_tokens() ->
+-spec get_oauth_data() -> #twitter_oauth_data{}.
+get_oauth_data() ->
     #twitter_oauth_data{
         consumer_key = twitterl:get_env(oauth_consumer_key),
         consumer_secret = twitterl:get_env(oauth_consumer_secret),

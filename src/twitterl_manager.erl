@@ -16,13 +16,12 @@
 
 -export([get_process/1]).
 -export([register_process/2]).
--export([create_reference/0]).
 -export([safe_cast/2, safe_call/2, safe_call/3]).
 
 %%
 %% For testing
 %%
--export([send_message_to_pid/2]).
+-export([send_message_to_target/2]).
 
 
 %% ------------------------------------------------------------------
@@ -41,74 +40,79 @@
 %% ------------------------------------------------------------------
 
 %% @doc Register a process locally
--spec register_process(Type::atom(),Name:: binary() | reference()) -> true.
+-spec register_process(Type::atom(),Name:: atom()|binary() | reference()) -> true.
 register_process(Type, Name) ->
     gproc:reg({p, l, Type}, Name).
 
 %% @doc Get the Pid for a given process type, or {Type, Name}
--spec get_process({Type::atom(), Name::reference()} | atom()) -> pid() | error().
+-spec get_process({Type::atom(), Name::atom()} | atom()) -> pid() | error().
 get_process(Key) ->
     get_child_pid(Key).
 
-%% @doc Get a reference that is usable to identify gen_servers and requests
--spec create_reference() -> timer2_server_ref().
-create_reference() ->
-    {self(), make_ref()}.
-
 %% @doc Unified mechanism to send a gen_server call request to a supervised process
--spec safe_call({Type :: atom(), Name :: any()}, Request :: any()) -> {ok, pid()} | {ok, Result :: any(), pid()} | error().
+-spec safe_call({Type :: atom(), Name :: atom()} | atom(), Request :: any()) -> {ok, pid()} | {ok, Result :: any(), pid()} | error().
 safe_call({_Type, _Name} = Key, Request) ->
-    safe_call(Key, Request, ?DEFAULT_TIMER_TIMEOUT).
+    safe_call(Key, Request, ?DEFAULT_TIMER_TIMEOUT);
+
+safe_call(Type, Request) ->
+    safe_call(Type, Request, ?DEFAULT_TIMER_TIMEOUT).
 
 
--spec safe_call({Type :: atom(), Name :: any()}, Request::any(), timeout()) -> {ok, pid()} | {ok, Result :: any(), pid()} | error().
-safe_call({Type, Name} = Key, Request, Timeout) ->
+-spec safe_call({Type :: atom(), Name :: atom()} | atom(), Request::any(), timeout()) -> {ok, pid()} | {ok, Result :: any(), pid()} | error().
+safe_call({Type, Name}, Request, Timeout) ->
     % Send the request to the process
-    case is_reference(Name) of 
-        true ->
-            case get_child_pid(Key) of
-                Pid when is_pid(Pid) ->
-                    gen_server:call(Pid, Request, Timeout);
-                Error ->
-                    Error
-            end;
+    case get_process({Type, Name}) of 
+        Pid when is_pid(Pid) ->
+            gen_server:call(Pid, Request, Timeout);
         _ ->
-            case get_child_pid(Type) of
-                Pid when is_pid(Pid) ->
-                    gen_server:call(Pid, Request, Timeout);
-                Error ->
-                    Error
-            end
+            {ok, Target} = start_supervised_process(Type, Name),
+            gen_server:call(Target, Request, Timeout)
+    end;
+
+safe_call(Type, Request, Timeout) ->
+    % Send the request to the process
+    case get_process(Type) of 
+        Pid when is_pid(Pid) ->
+            gen_server:call(Pid, Request, Timeout);
+        _ ->
+            {ok, Target} = start_supervised_process(Type, Type),
+            gen_server:call(Target, Request, Timeout)
     end.
 
 %% @doc Unified mechanism to send a gen_server cast request to a supervised process
--spec safe_cast({Type :: atom(), Name :: any()}, Request :: any()) -> ok | error().
-safe_cast({Type, Name} = Key, Request) ->
+-spec safe_cast({Type :: atom(), Name :: atom()} | atom(), Request :: any()) -> ok | error().
+safe_cast({Type, Name}, Request) ->
     % Send the request to the process
-    case is_reference(Name) of 
-        true ->
-            case get_child_pid(Key) of
-                Pid when is_pid(Pid) ->
-                    gen_server:cast(Pid, Request);
-                Error ->
-                    Error
-            end;
+    case get_process({Type, Name}) of 
+        Pid when is_pid(Pid) ->
+            gen_server:cast(Pid, Request);
         _ ->
-            case get_child_pid(Type) of
-                Pid when is_pid(Pid) ->
-                    gen_server:cast(Pid, Request);
-                Error ->
-                    Error
-            end
+            {ok, Target} = start_supervised_process(Type, Name),
+            gen_server:cast(Target, Request)
+    end;
+
+safe_cast(Type, Request) ->
+    % Send the request to the process
+    case get_process(Type) of 
+        Pid when is_pid(Pid) ->
+            gen_server:cast(Pid, Request);
+        _ ->
+            {ok, Target} = start_supervised_process(Type, Type),
+            gen_server:cast(Target, Request)
     end.
 
--spec send_message_to_pid(Pid::pid(), Message::atom()) -> ok.
-send_message_to_pid(Pid, Message) ->
-    Pid ! Message.
+-spec send_message_to_target(Target::target(), Message::atom()) -> ok.
+send_message_to_target(Target, Message) ->
+    Target ! Message.
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+start_supervised_process(?TWITTERL_PROCESSOR, ?TWITTERL_REQUEST_TYPE_STREAM) ->
+    twitterl_processor_sup:start_processor(?TWITTERL_REQUEST_TYPE_STREAM);
+start_supervised_process(?TWITTERL_PROCESSOR, ?TWITTERL_REQUEST_TYPE_REST) ->
+    twitterl_processor_sup:start_processor(?TWITTERL_REQUEST_TYPE_REST).
 
 get_child_pid({Type, Name}) ->
     % If the process was started, it will be registered in gproc

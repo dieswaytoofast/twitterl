@@ -12,17 +12,7 @@
 
 
 %% Timeouts
--define(CONNECTION_RETRY_DURATION, 10000).
--define(CONNECTION_TIMEOUT_DURATION, 60000).
 %% Records
--record(processor_state, {
-            requests = dict:new()
+-record(tweet_parser_state, {
             }).
 
--record(request_details, {
-            pid :: pid(),
-            request_type    :: request_type(),
-            target         :: target(),
-            request         :: list(),
-            retry_count         :: integer()
-            }).

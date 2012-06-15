@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>
 %%% @copyright (C) 2012  Mahesh Paolini-Subramanya
-%%% @doc twitterl_receiver header files and definitions.
+%%% @doc twitterl_requestor header files and definitions.
 %%% @end
 %%%-------------------------------------------------------------------
 -author('Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>').
@@ -16,10 +16,7 @@
 
 
 %% Records
--record(receiver_state, {
-            max_id = 0              :: integer(),
-            since_id = 0            :: integer(),
-            oauth_data          :: twitter_oauth_data
+-record(requestor_state, {
             }).
 
 -record(twitter_oauth_data, {

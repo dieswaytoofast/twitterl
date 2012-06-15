@@ -1,10 +1,10 @@
 %%%-------------------------------------------------------------------
 %%% @author Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>
 %%% @copyright (C) 2012 Juan Jose Comellas, Mahesh Paolini-Subramanya
-%%% @doc Main module for the twitterl_processor supervisor
+%%% @doc Main module for the twitterl_tweet_parser supervisor
 %%% @end
 %%%-------------------------------------------------------------------
--module(twitterl_processor_sup).
+-module(twitterl_tweet_parser_sup).
 -author('Juan Jose Comellas <juanjo@comellas.org>').
 -author('Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>').
 
@@ -12,7 +12,7 @@
 
 %% API
 -export([start_link/0]).
--export([start_processor/1]).
+-export([start_tweet_parser/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -29,9 +29,8 @@
 %% API functions
 %% ===================================================================
 
--spec start_processor(RequestType::request_type) -> any().
-start_processor(RequestType) ->
-    supervisor:start_child(?MODULE, [RequestType]).
+start_tweet_parser() ->
+    supervisor:start_child(?MODULE, ?CHILD(make_ref(), worker, ?TWITTERL_TWEET_PARSER, [])).
 
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
@@ -41,5 +40,8 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    TwitterProcessor = ?CHILD(?TWITTERL_PROCESSOR_SUP, worker, ?TWITTERL_PROCESSOR, []),
-    {ok, { {simple_one_for_one, 5, 300}, [TwitterProcessor]} }.
+    NumTweetParsers = twitterl:get_env(?TWITTERL_TWEET_PARSER_COUNT, 1),
+    TweetParsers = lists:foldl(fun(_X, Acc) -> 
+                    [?CHILD(make_ref(), worker, ?TWITTERL_TWEET_PARSER, []) | Acc]
+            end, [], lists:seq(1, NumTweetParsers)),
+    {ok, { {one_for_one, 5, 300}, TweetParsers} }.
