@@ -102,7 +102,7 @@ parse_many_tweets_internal(JsonBody, Target) ->
             ({Tweet}) ->
                 case twitterl_parser_util:parse({tweet, Tweet}) of
                     {ok, TweetRecord} ->
-                        twitterl_manager:send_message_to_target(Target, TweetRecord);
+                        twitterl_manager:respond_to_target(Target, TweetRecord);
                     _ ->
                         void
                 end
@@ -111,7 +111,7 @@ parse_many_tweets_internal(JsonBody, Target) ->
 parse_one_tweet_internal({JsonBody}, Target) ->
     case twitterl_parser_util:parse({tweet, JsonBody}) of
         {ok, TweetRecord} ->
-            twitterl_manager:send_message_to_target(Target, TweetRecord);
+            twitterl_manager:respond_to_target(Target, TweetRecord);
         _ ->
             void
     end.

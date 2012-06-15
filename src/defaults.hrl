@@ -45,7 +45,7 @@
 -type error()                                 :: {error, Reason :: term()}.
 -type request_type()                          :: stream|rest.
 -type process_name()                          :: request_type().
--type target()                                :: pid() | atom().
+-type target()                                :: pid() | atom() | fun().
 -type request_id()                                :: {pid(), pid()}.
 
 -record(bounding_box, {

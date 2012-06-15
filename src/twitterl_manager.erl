@@ -21,7 +21,7 @@
 %%
 %% For testing
 %%
--export([send_message_to_target/2]).
+-export([respond_to_target/2]).
 
 
 %% ------------------------------------------------------------------
@@ -101,9 +101,15 @@ safe_cast(Type, Request) ->
             gen_server:cast(Target, Request)
     end.
 
--spec send_message_to_target(Target::target(), Message::atom()) -> ok.
-send_message_to_target(Target, Message) ->
-    Target ! Message.
+-spec respond_to_target(Target::target(), Message::atom()) -> ok.
+respond_to_target(Target, Message) ->
+    TargetType = get_target_type(Target),
+    case TargetType of
+        function ->
+            Target(Message);
+        process -> 
+            Target ! Message
+    end.
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
@@ -133,3 +139,8 @@ get_child_pid(Type) ->
             Index = random:uniform(length(PidList)),
             lists:nth(Index, PidList)
     end.
+
+get_target_type(Target) when is_function(Target, 1) ->
+    function;
+get_target_type(Target) when is_pid(Target) orelse is_atom(Target) ->
+    process.

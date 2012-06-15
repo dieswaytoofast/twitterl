@@ -159,7 +159,7 @@ return_data(Target, RequestType = stream, Request) ->
 	                %% Exit 'normal', so that the supervisor doesnt restart it
 	                {error, ?AUTH_ERROR, Reason} ->
 	                    lager:debug("error authenticating Reason:~p~n", [Reason]),
-                        twitterl_manager:send_message_to_target(Target, {error, Reason}),
+                        twitterl_manager:respond_to_target(Target, {error, Reason}),
                         {error, ?AUTH_ERROR};
 	                {error, ?RATE_ERROR, Reason} ->
 	                    lager:debug("error with too many connections Reason:~p~n", [Reason]),
@@ -167,11 +167,11 @@ return_data(Target, RequestType = stream, Request) ->
 	                    return_data(Target, RequestType, Request);
 	                {error, Reason} ->
 	                    lager:debug("error Reason:~p~n", [Reason]),
-                        twitterl_manager:send_message_to_target(Target, {error, Reason}),
+                        twitterl_manager:respond_to_target(Target, {error, Reason}),
                         {error, Reason};
 	                Reason  ->
 	                    lager:debug("Unknown Reason:~p~n", [Reason]),
-                        twitterl_manager:send_message_to_target(Target, {error, Reason}),
+                        twitterl_manager:respond_to_target(Target, {error, Reason}),
                         {error, Reason}
 	            end;
 	        Response ->
