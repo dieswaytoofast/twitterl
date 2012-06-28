@@ -13,7 +13,7 @@
 -export([start/0, stop/0]).
 -export([get_env/0, get_env/1, get_env/2]).
 
--export([get_request_token/0, get_access_token/3]).
+-export([get_request_token/0, get_request_token/1, get_access_token/3]).
 -export([update_status/3]).
 
 -export([setup/0]).
@@ -97,6 +97,11 @@ setup() ->
 -spec get_request_token() -> #twitter_token_data{}.
 get_request_token() ->
     twitterl_requestor:get_request_token().
+
+%% @doc Get a request token
+-spec get_request_token(url()) -> #twitter_token_data{}.
+get_request_token(URL) ->
+    twitterl_requestor:get_request_token(URL).
 
 %% @doc Get a request token
 -spec get_access_token(token(), secret(), verifier()) -> #twitter_access_data{} | error().

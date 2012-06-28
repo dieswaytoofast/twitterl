@@ -28,7 +28,7 @@
          stop_request/1]).
 
 % Authorization
--export([get_request_token/0, get_access_token/3]).
+-export([get_request_token/0, get_request_token/1, get_access_token/3]).
 % Status
 -export([update_status/3]).
 %% ------------------------------------------------------------------
@@ -94,7 +94,11 @@ stop_request({ServerProcess, RequestPid}) ->
 %% @doc Get a request token
 -spec get_request_token() -> #twitter_token_data{} | error().
 get_request_token() ->
-    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_request_token}).
+    get_request_token(?TWITTERL_CALLBACK_URL).
+
+-spec get_request_token(url()) -> #twitter_token_data{} | error().
+get_request_token(URL) ->
+    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_request_token, URL}).
 
 %% @doc Get a request token
 -spec get_access_token(token(), secret(), verifier()) -> #twitter_access_data{} | error().
@@ -119,9 +123,10 @@ init(_Args) ->
     State = #requestor_state{oauth_data = OAuthData},
     {ok, State}.
 
-handle_call({get_request_token}, _From, State) ->
+handle_call({get_request_token, URL}, _From, State) ->
+    SURL = twitterl_util:get_string(URL),
     OAuthData = State#requestor_state.oauth_data,
-    Reply = case process_post(?TWITTER_REQUEST_TOKEN_URL, [{"oauth_callback", ?TWITTERL_CALLBACK_URL}], OAuthData) of
+    Reply = case process_post(?TWITTER_REQUEST_TOKEN_URL, [{"oauth_callback", SURL}], OAuthData) of
         {error, _} = Error ->
             Error;
         Response ->
