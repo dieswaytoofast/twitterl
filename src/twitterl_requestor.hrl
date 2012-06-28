@@ -13,6 +13,9 @@
 %% Twitter API URLs
 -define(TWITTER_FAVORITES_URL, "https://api.twitter.com/1/favorites.json").
 -define(TWITTER_HOME_TIMELINE_URL, "https://api.twitter.com/1/statuses/home_timeline.json").
+-define(TWITTER_REQUEST_TOKEN_URL, "https://api.twitter.com/oauth/request_token").
+-define(TWITTER_VERIFY_TOKEN_URL, "https://api.twitter.com/oauth/access_token").
+-define(TWITTER_ACCESS_TOKEN_URL, "https://api.twitter.com/oauth/access_token").
 
 
 %% Records

@@ -16,9 +16,11 @@
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
--export([get_request/1, get_request/2, process_request/3, process_request/4,
+-export([get_request/2, get_request/3, get_request/5, process_request/3, process_request/4,
          stop_request/1]).
 
+% Authorization
+-export([get_request_token/0, get_access_token/3]).
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -37,16 +39,27 @@
 %% ------------------------------------------------------------------
 
 
+%%% Viewing requests
+
 %% @doc get the http Request associated with the URL
--spec get_request(URL::string()) -> [{string(), string()}].
-get_request(URL) ->
-    get_request(URL, []).
+-spec get_request(method, url()) -> [{string(), string()}].
+get_request(Method, URL) ->
+    get_request(Method, URL, []).
 
 %% @doc get the http Request associated with the URL and Params
--spec get_request(URL::string(), Params::list()) -> [{string(), string()}].
-get_request(URL, Params) ->
+-spec get_request(method(), url(), params()) -> [{string(), string()}].
+get_request(Method, URL, Params) ->
     OAuthData = get_oauth_data(),
-    create_request(OAuthData, URL, Params).
+    create_request(OAuthData, Method, URL, Params).
+
+%% @doc get the http Request associated with the URL and Params
+-spec get_request(method(), url(), params(), token(), secret()) -> [{string(), string()}].
+get_request(Method, URL, Params, Token, Secret) ->
+    OAuthData = get_oauth_data(),
+    create_request(OAuthData, Method, URL, Params, Token, Secret).
+
+
+%%% Request processing
 
 %% @doc Run the request on the URL in stream or REST mode. The result will be
 %%          sent to Target
@@ -66,6 +79,21 @@ process_request(Target, RequestType, URL, Params) ->
 -spec stop_request(RequestId::request_id()) -> ok.
 stop_request({ServerProcess, RequestPid}) ->
     gen_server:cast(ServerProcess, {stop_request, RequestPid}).
+
+%%% Authorization
+
+%% @doc Get a request token
+get_request_token() ->
+    Consumer = get_consumer(get_oauth_data()),
+    Response = check_response(oauth:post(?TWITTER_REQUEST_TOKEN_URL, [{"oauth_callback", "http://www.posttestserver.com"}], Consumer)), 
+    Tokens = oauth:params_decode(Response),
+    validate_tokens(Tokens).
+
+%% @doc Get a request token
+get_access_token(Token, Secret, Verifier) ->
+    Consumer = get_consumer(get_oauth_data()),
+    Response = check_response(oauth:post(?TWITTER_ACCESS_TOKEN_URL, [{"oauth_verifier", Verifier}], Consumer, Token, Secret)),
+    oauth:params_decode(Response).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -111,26 +139,60 @@ get_oauth_data() ->
         }.
 
 %% @doc Get the consumer credentials for the account
--spec get_consumer(#twitter_oauth_data{}) -> {string(), string(), atom()}.
+-spec get_consumer(#twitter_oauth_data{}) -> consumer().
 get_consumer(OAuthData) ->
     {OAuthData#twitter_oauth_data.consumer_key,
      OAuthData#twitter_oauth_data.consumer_secret,
      hmac_sha1}.
 
-
 %% @doc Sign the Request
--spec sign_request(#twitter_oauth_data{}, string(), list()) -> [{string(), string()}].
-sign_request(OAuthData, URL, Params) -> 
+-spec sign_request(#twitter_oauth_data{}, string_method(), url(), params()) -> [{string(), string()}].
+sign_request(OAuthData, StringMethod, URL, Params) -> 
+    Token = OAuthData#twitter_oauth_data.access_token, 
+    Secret = OAuthData#twitter_oauth_data.access_token_secret, 
+    sign_request(OAuthData, StringMethod, URL, Params, Token, Secret).
+
+-spec sign_request(#twitter_oauth_data{}, string_method(), url(), params(), token(), secret()) -> [{string(), string()}].
+sign_request(OAuthData, StringMethod, URL, Params, Token, Secret) -> 
     Consumer = get_consumer(OAuthData),
-    AccessToken = OAuthData#twitter_oauth_data.access_token, 
-    AccessTokenSecret = OAuthData#twitter_oauth_data.access_token_secret, 
-    oauth:sign("GET", URL, Params, Consumer, AccessToken, AccessTokenSecret).
+    oauth:sign(StringMethod, URL, Params, Consumer, Token, Secret).
 
 %% @doc Create the Request
--spec create_request(#twitter_oauth_data{}, string(), list()) -> [{string(), string()}].
-create_request(OAuthData, URL, Params) -> 
-    SignedRequest = sign_request(OAuthData, URL, Params),
+-spec create_request(#twitter_oauth_data{}, method(), url(), params()) -> [{string(), string()}].
+create_request(OAuthData, Method, URL, Params) -> 
+    StringMethod = twitterl_util:get_string_method(Method),
+    SignedRequest = sign_request(OAuthData, StringMethod, URL, Params),
+    build_request(URL, SignedRequest).
+
+-spec create_request(#twitter_oauth_data{}, method(), url(), params(), token(), secret()) -> [{string(), string()}].
+create_request(OAuthData, Method, URL, Params, Token, Secret) -> 
+    StringMethod = twitterl_util:get_string_method(Method),
+    SignedRequest = sign_request(OAuthData, StringMethod, URL, Params, Token, Secret),
+    build_request(URL, SignedRequest).
+
+build_request(URL, SignedRequest) ->
     {AuthorizationParams, QueryParams} = lists:partition(fun({K, _}) -> lists:prefix("oauth_", K) end, SignedRequest),
     lager:debug("A:~p~n, Q:~p~n", [AuthorizationParams, QueryParams]),
     {oauth:uri(URL, QueryParams), [oauth:header(AuthorizationParams)]}.
+
+validate_tokens(Tokens) ->
+    case proplists:get_value("oauth_callback_confirmed", Tokens) of
+        "true" ->
+            Tokens;
+        _ ->
+            throw({error, ?INVALID_REQUEST_TYPE})
+    end.
+
+%% @doc Check the http request for errors
+-spec check_response(any()) -> any().
+check_response(Response) ->
+    case Response of
+        {ok, {{_, 401, _} = _Status, _Headers, _Body} = _Response} ->
+            lager:debug("Response:~p~n", [Response]),
+            throw({error, ?AUTH_ERROR});
+        {ok, Response} ->
+            Response;
+        Other ->
+            throw({error, Other})
+    end.
 

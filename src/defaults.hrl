@@ -46,7 +46,15 @@
 -type request_type()                          :: stream|rest.
 -type process_name()                          :: request_type().
 -type target()                                :: pid() | atom() | fun().
--type request_id()                                :: {pid(), pid()}.
+-type request_id()                            :: {pid(), pid()}.
+-type token()                                 :: string().
+-type secret()                                :: string().
+-type verifier()                              :: string().
+-type url()                                   :: string().
+-type method()                                :: atom().
+-type string_method()                         :: string().
+-type params()                                :: list().
+-type consumer()                              :: {string(), string(), atom()}.
 
 -record(bounding_box, {
             type          :: binary(),

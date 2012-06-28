@@ -16,6 +16,7 @@
 -export([required/2]).
 -export([validate_list_of_binaries/2]).
 -export([get_boolean_value/1]).
+-export([get_string_method/1]).
 
 %%
 %% General Utilities
@@ -47,6 +48,10 @@ keysearch(Key, N, Default, TupleList) ->
 %%
 %% Parameters
 %% 
+-spec get_string_method(atom()) -> string().
+get_string_method(get) -> "GET";
+get_string_method(post) -> "POST";
+get_string_method(_) -> "GET".
 
 %%
 %% Validations
