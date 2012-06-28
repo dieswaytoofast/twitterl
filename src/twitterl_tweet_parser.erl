@@ -16,7 +16,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 -export([parse_many_tweets/2]).
--export([parse_one_tweet/2]).
+-export([parse_one_tweet/1, parse_one_tweet/2]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -38,6 +38,10 @@ parse_many_tweets(JsonBody, Target) ->
     lager:debug("JsonBody:~p~n, Target:~p~n", [JsonBody, Target]),
     twitterl_manager:safe_cast(?TWITTERL_TWEET_PARSER, {parse_many_tweets, JsonBody, Target}).
 
+parse_one_tweet(JsonBody) ->
+    lager:debug("JsonBody:~p~n", [JsonBody]),
+    twitterl_manager:safe_call(?TWITTERL_TWEET_PARSER, {parse_one_tweet, JsonBody}).
+
 parse_one_tweet(JsonBody, Target) ->
     lager:debug("JsonBody:~p~n, Target:~p~n", [JsonBody, Target]),
     twitterl_manager:safe_cast(?TWITTERL_TWEET_PARSER, {parse_one_tweet, JsonBody, Target}).
@@ -57,6 +61,11 @@ init([]) ->
     twitterl_manager:register_process(?TWITTERL_TWEET_PARSER, make_ref()),
     State = #tweet_parser_state{},
     {ok, State}.
+
+handle_call({parse_one_tweet, JsonBody}, _From, State) ->
+    lager:debug("1.5, ~p~n", [JsonBody]),
+    Reply = parse_one_tweet_internal(JsonBody),
+    {reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
     lager:debug("2, ~p~n", [_Request]),
@@ -107,13 +116,23 @@ parse_many_tweets_internal(JsonBody, Target) ->
                         void
                 end
         end,  JsonBody).
+
+%%  Deal with JsonBody of {[{<<"friends">>,[]}]}
+parse_one_tweet_internal({JsonBody}) ->
+    case twitterl_parser_util:parse({tweet, JsonBody}) of
+        {ok, TweetRecord} ->
+            TweetRecord;
+        Error ->
+            Error
+    end.
+
 %%  Deal with JsonBody of {[{<<"friends">>,[]}]}
 parse_one_tweet_internal({JsonBody}, Target) ->
     case twitterl_parser_util:parse({tweet, JsonBody}) of
         {ok, TweetRecord} ->
             twitterl_manager:respond_to_target(Target, TweetRecord);
-        _ ->
-            void
+        Error ->
+            twitterl_manager:respond_to_target(Target, Error)
     end.
 
 

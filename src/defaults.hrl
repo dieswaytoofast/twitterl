@@ -13,6 +13,8 @@
 -define(INVALID_REQUEST_TYPE, invalid_request_type).
 -define(EMPTY_ERROR, empty).
 -define(INVALID_BOOLEAN, invalid_boolean).
+-define(INVALID_STRING, invalid_string).
+-define(INVALID_BINARY, invalid_binary).
 
 %% Twitter
 -define(TWITTERL_PROCESSOR_SUP, twitterl_processor_sup).
@@ -38,6 +40,16 @@
 %% Processor
 -define(REQUEST_COMPLETED, request_completed).
 
+%% Twitter API URLs
+-define(TWITTER_FAVORITES_URL, "https://api.twitter.com/1/favorites.json").
+-define(TWITTER_HOME_TIMELINE_URL, "https://api.twitter.com/1/statuses/home_timeline.json").
+-define(TWITTER_REQUEST_TOKEN_URL, "https://api.twitter.com/oauth/request_token").
+-define(TWITTER_ACCESS_TOKEN_URL, "https://api.twitter.com/oauth/access_token").
+-define(TWITTER_STATUS_UPDATE_URL, "https://api.twitter.com/1/statuses/update.json").
+
+%% Callback URL
+-define(TWITTERL_CALLBACK_URL, "http://www.posttestserver.com").
+
 
 %%
 %% Types
@@ -47,14 +59,41 @@
 -type process_name()                          :: request_type().
 -type target()                                :: pid() | atom() | fun().
 -type request_id()                            :: {pid(), pid()}.
--type token()                                 :: string().
--type secret()                                :: string().
--type verifier()                              :: string().
--type url()                                   :: string().
+-type token()                                 :: binary().
+-type secret()                                :: binary().
+-type status()                                :: binary().
+-type verifier()                              :: binary().
+-type url()                                   :: binary().
 -type method()                                :: atom().
 -type string_method()                         :: string().
 -type params()                                :: list().
 -type consumer()                              :: {string(), string(), atom()}.
+
+%% Records
+
+% Strings, because these get converted all the time
+-record(twitter_oauth_data, {
+            consumer_key        :: string(),
+            consumer_secret     :: string(),
+            access_token         :: string(),
+            access_token_secret  :: string()
+            }).
+
+-record(twitter_token_data, {
+            access_token            :: binary(),
+            access_token_secret     :: binary()
+            }).
+
+-record(twitter_access_data, {
+            access_token            :: binary(),
+            access_token_secret     :: binary(),
+            user_id                 :: binary(),
+            screen_name             :: binary()
+            }).
+
+-record(requestor_state, {
+            oauth_data          :: #twitter_oauth_data{}
+            }).
 
 -record(bounding_box, {
             type          :: binary(),
@@ -103,4 +142,7 @@
             user          :: #twitter_user{},
             entities      :: #entities{}
             }).
+
+
+
 

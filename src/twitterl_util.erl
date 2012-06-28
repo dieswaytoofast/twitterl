@@ -16,6 +16,10 @@
 -export([required/2]).
 -export([validate_list_of_binaries/2]).
 -export([get_boolean_value/1]).
+
+-export([get_string/1]).
+-export([get_binary/1]).
+
 -export([get_string_method/1]).
 
 %%
@@ -44,6 +48,19 @@ keysearch(Key, N, Default, TupleList) ->
         false ->
             Default
     end.
+
+-spec get_string(atom() | binary() | string()) -> string().
+get_string(Data) when is_atom(Data) -> atom_to_list(Data);
+get_string(Data) when is_binary(Data) -> binary_to_list(Data);
+get_string(Data) when is_list(Data) -> Data;
+get_string(_) -> {error, ?INVALID_STRING}.
+
+-spec get_binary(atom() | binary() | string()) -> binary().
+get_binary(Data) when is_atom(Data) -> list_to_binary(atom_to_list(Data));
+get_binary(Data) when is_list(Data) -> list_to_binary(Data);
+get_binary(Data) when is_binary(Data) -> Data;
+get_binary(_) -> {error, ?INVALID_BINARY}.
+
 
 %%
 %% Parameters

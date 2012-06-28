@@ -12,6 +12,10 @@
 
 -export([start/0, stop/0]).
 -export([get_env/0, get_env/1, get_env/2]).
+
+-export([get_request_token/0, get_access_token/3]).
+-export([update_status/3]).
+
 -export([setup/0]).
 
 -define(APP, ?MODULE).
@@ -20,35 +24,44 @@
 %% @doc Start the application and all its dependencies.
 -spec start() -> ok.
 start() ->
-    application:start(sasl),
-    application:start(compiler),
-    application:start(syntax_tools),
-    application:start(lager),
-    application:start(ejson),
-    application:start(crypto),
-    application:start(public_key),
-    application:start(ssl),
-    application:start(inets),      %% required by oauth
-    application:start(oauth),
-    application:start(gproc),
-    application:start(twitterl).
+    start_deps(?APP).
+
+-spec start_deps(App :: atom()) -> ok.
+start_deps(App) ->
+    application:load(App),
+    {ok, Deps} = application:get_key(App, applications),
+    lists:foreach(fun start_deps/1, Deps),
+    start_app(App).
+
+-spec start_app(App :: atom()) -> ok.
+start_app(App) ->
+    case application:start(App) of
+        {error, {already_started, _}} -> ok;
+        ok                            -> ok
+    end.
 
 
 %% @doc Stop the application and all its dependencies.
 -spec stop() -> ok.
 stop() ->
-    application:stop(twitterl),
-    application:stop(gproc),
-    application:stop(oauth),
-    application:stop(inets),       %% required by oauth
-    application:stop(ssl),
-    application:stop(public_key),
-    application:stop(crypto),
-    application:stop(ejson),
-    application:stop(lager),
-    application:stop(syntax_tools),
-    application:stop(compiler),
-    application:stop(sasl).
+    stop_deps(?APP).
+
+-spec stop_deps(App :: atom()) -> ok.
+stop_deps(App) ->
+    stop_app(App),
+    {ok, Deps} = application:get_key(App, applications),
+    lists:foreach(fun stop_deps/1, lists:reverse(Deps)).
+
+-spec stop_app(App :: atom()) -> ok.
+stop_app(kernel) ->
+    ok;
+stop_app(stdlib) ->
+    ok;
+stop_app(App) ->
+    case application:stop(App) of
+        {error, {not_started, _}} -> ok;
+        ok                        -> ok
+    end.
 
 
 %% @doc Retrieve all key/value pairs in the env for the specified app.
@@ -78,3 +91,21 @@ get_env(Key, Default) ->
 -spec setup() -> ok | error().
 setup() ->
     ok.
+
+%%% Authorization
+%% @doc Get a request token
+-spec get_request_token() -> #twitter_token_data{}.
+get_request_token() ->
+    twitterl_requestor:get_request_token().
+
+%% @doc Get a request token
+-spec get_access_token(token(), secret(), verifier()) -> #twitter_access_data{} | error().
+get_access_token(Token, Secret, Verifier) ->
+    twitterl_requestor:get_access_token(Token, Secret, Verifier).
+
+
+%%% Status
+%% @doc Update Status
+-spec update_status(token(), secret(), status()) -> #tweet{} | error().
+update_status(Token, Secret, Status) ->
+    twitterl_requestor:update_status(Token, Secret, Status).

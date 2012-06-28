@@ -7,8 +7,6 @@
   {applications, [
                   kernel,
                   stdlib,
-                  syntax_tools,
-                  compiler,
                   sasl,
                   crypto,
                   public_key,
@@ -16,6 +14,8 @@
                   lager,
                   gproc,
                   ejson,
+                  ssl,
+                  bstr,
                   oauth
                  ]},
   {mod, { twitterl_app, []}},
