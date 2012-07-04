@@ -49,14 +49,20 @@ init([RequestType]) ->
     {ok, State}.
 
 
-handle_call({request, Request, RequestType, Target} = _Req, _From, State) ->
-    lager:debug("3, ~p~n", [_Req]),
+handle_call({request, Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun} = _Req, _From, State) ->
+    lager:debug("request, ~p~n", [_Req]),
     RetryCount = application:get_env(retry_count, ?TWITTERL_RETRY_COUNT),
-    Pid = proc_lib:spawn_link(fun() -> return_data(Target, RequestType, Request) end),
+    Pid = proc_lib:spawn_link(fun() -> return_data(Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) end),
     RequestDetails = #request_details{pid = Pid, 
-                                      request_type = RequestType,
                                       target = Target, 
-                                      request = Request,
+                                      request_type = RequestType,
+                                      http_request_type = HttpRequestType,
+                                      url = URL,
+                                      params = Params,
+                                      consumer = Consumer,
+                                      token = Token,
+                                      secret = Secret,
+                                      send_function = SendFun,
                                       retry_count = RetryCount},
     OldDict = State#processor_state.requests,
     NewDict = dict:store(Pid, RequestDetails, OldDict),
@@ -88,6 +94,8 @@ handle_info({'EXIT',  Pid, Reason}, State) ->
         {ok, OldRequest} ->
             Dict1 = dict:erase(Pid, OldDict),
             case Reason of
+                normal ->
+                    Dict1;
                 {ok, _} ->
                     Dict1;
                 {error, ?AUTH_ERROR} ->
@@ -100,8 +108,14 @@ handle_info({'EXIT',  Pid, Reason}, State) ->
                         true -> 
                             Target = OldRequest#request_details.target,
                             RequestType = OldRequest#request_details.request_type,
-                            Request = OldRequest#request_details.request,
-                            NewPid = proc_lib:spawn_link(fun() -> return_data(Target, RequestType, Request) end),
+                            HttpRequestType = OldRequest#request_details.http_request_type,
+                            URL = OldRequest#request_details.url,
+                            Params = OldRequest#request_details.params,
+                            Consumer = OldRequest#request_details.consumer,
+                            Token = OldRequest#request_details.token,
+                            Secret = OldRequest#request_details.secret,
+                            SendFun = OldRequest#request_details.send_function,
+                            NewPid = proc_lib:spawn_link(fun() -> return_data(Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) end),
                             NewRequestDetails = OldRequest#request_details{
                                     pid = NewPid,
                                     retry_count = NewRetryCount},
@@ -127,18 +141,23 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
-return_data(Target, _RequestType = rest, Request) ->
+return_data(Target, _RequestType = rest, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) ->
     try
-        case httpc:request(get, Request, [{autoredirect, false}], []) of
+        OauthFun = get_oauth_fun(HttpRequestType, URL, Params, Consumer, Token, Secret),
+        case OauthFun() of
+            {ok, {{_, 401, _} = _Status, _Headers, _Body} = _Response} ->
+                lager:debug("Response:~p~n", [_Response]),
+                twitterl_manager:respond_to_target(Target, {error, ?AUTH_ERROR});
+            {ok, {{_, 403, _} = _Status, _Headers, Body} = _Response} ->
+                lager:debug("Response:~p~n", [_Response]),
+                twitterl_manager:respond_to_target(Target, {error, Body});
             {ok, {_Result, _Headers, BinBody}} ->
                 try 
-                    JsonBody= ejson:decode(BinBody),
-                    lager:debug("returning data to:~p, JsonBody:~p~n, BinBody:~p~n", [Target, JsonBody, BinBody]),
-                    twitterl_tweet_parser:parse_many_tweets(JsonBody, Target)
+                    SendFun(Target, BinBody)
                 catch
                     IClass:IReason ->
-                        lager:debug("catch send_data IClass:~p~n, IReason:~p~n", [IClass, IReason]) 
-                        %% What should happen here?
+                        lager:debug("catch send_data IClass:~p~n, IReason:~p~n", [IClass, IReason]),
+                        twitterl_manager:respond_to_target(Target, {error, IReason})
                 end;
             Response ->
                 lager:debug("Unknown Response:~p~n", [Response])
@@ -147,15 +166,17 @@ return_data(Target, _RequestType = rest, Request) ->
         OClass:OReason -> 
             lager:debug("catch return_data OClass:~p~n, OReason:~p~n", [OClass, OReason])
     end;
-return_data(Target, RequestType = stream, Request) ->
-    try 
-        case httpc:request(get, Request, [], [{stream, self}, {sync, false}]) of
+
+return_data(Target, RequestType = stream, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) ->
+    try
+        OauthFun = get_oauth_fun(HttpRequestType, URL, Params, Consumer, Token, Secret, [{stream, self}, {sync, false}]),
+        case OauthFun() of
             {ok, RequestId} ->
-                case receive_data(Target, RequestId) of
+                case receive_data(Target, RequestId, SendFun) of
 	                %% Connection closed normally.  Redo it
                     {ok, _} ->
 	                    timer:sleep(?CONNECTION_RETRY_DURATION),
-	                    return_data(Target, RequestType, Request);
+                        return_data(Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun);
 	                %% Exit 'normal', so that the supervisor doesnt restart it
 	                {error, ?AUTH_ERROR, Reason} ->
 	                    lager:debug("error authenticating Reason:~p~n", [Reason]),
@@ -164,7 +185,7 @@ return_data(Target, RequestType = stream, Request) ->
 	                {error, ?RATE_ERROR, Reason} ->
 	                    lager:debug("error with too many connections Reason:~p~n", [Reason]),
 	                    timer:sleep(?CONNECTION_RETRY_DURATION),
-	                    return_data(Target, RequestType, Request);
+                        return_data(Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun);
 	                {error, Reason} ->
 	                    lager:debug("error Reason:~p~n", [Reason]),
                         twitterl_manager:respond_to_target(Target, {error, Reason}),
@@ -187,7 +208,7 @@ return_data(Target, RequestType = stream, Request) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-receive_data(Target, RequestId) ->
+receive_data(Target, RequestId, SendFun) ->
     receive
         {http, {RequestId, {error, Reason}}} 
                 when (Reason =:= timeout) 
@@ -206,31 +227,27 @@ receive_data(Target, RequestId) ->
         %% Data starts
         {http,{RequestId, stream_start, _Headers}} ->
             lager:debug("4, stream_start:~n", []),
-            receive_data(Target, RequestId);
+            receive_data(Target, RequestId, SendFun);
         %% Data continues
         {http,{RequestId, stream, BinBodyPart}} ->
             lager:debug("5, stream, BinBodyPart:~p~n", [BinBodyPart]),
-            proc_lib:spawn_link(fun() -> send_data(Target, BinBodyPart) end),
-            receive_data(Target, RequestId);
+            proc_lib:spawn_link(fun() -> SendFun(Target, BinBodyPart) end),
+            receive_data(Target, RequestId, SendFun);
         %% Data ends
         {http,{RequestId, stream_end, _Headers}} ->
             lager:debug("6, stream_end~n", []),
             {ok, RequestId}
     after ?CONNECTION_TIMEOUT_DURATION ->
             lager:debug("7, timeout~n", []),
-            receive_data(Target, RequestId)
+            receive_data(Target, RequestId, SendFun)
     end.
 
-%% @doc Sends the data back to the calling process
-%%      <<"\r\n">> needs to be ignored
-send_data(_Target, <<"\r\n">>) ->
-         ok;
-send_data(Target, BinBodyPart) ->
-    try
-        JsonBodyPart = ejson:decode(BinBodyPart),
-        lager:debug("returning data to:~p, JsonBodyPart:~p~n, BinBodyPart:~p~n", [Target, JsonBodyPart, BinBodyPart]),
-        twitterl_tweet_parser:parse_one_tweet(JsonBodyPart, Target)
-    catch
-        Class:Reason -> 
-            lager:debug("catch send_data Class:~p~n, Reason:~p~n", [Class, Reason])
-    end.
+
+get_oauth_fun(get, URL, Params, Consumer, Token, Secret) ->
+    fun() -> oauth:get(URL, Params, Consumer, Token, Secret) end;
+get_oauth_fun(post, URL, Params, Consumer, Token, Secret) ->
+    fun() -> oauth:post(URL, Params, Consumer, Token, Secret) end.
+get_oauth_fun(get, URL, Params, Consumer, Token, Secret, HttpArgs) ->
+    fun() -> oauth:get(URL, Params, Consumer, Token, Secret, HttpArgs) end;
+get_oauth_fun(post, URL, Params, Consumer, Token, Secret, HttpArgs) ->
+    fun() -> oauth:post(URL, Params, Consumer, Token, Secret, HttpArgs) end.

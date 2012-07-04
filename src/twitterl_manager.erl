@@ -101,15 +101,17 @@ safe_cast(Type, Request) ->
             gen_server:cast(Target, Request)
     end.
 
--spec respond_to_target(Target::target(), Message::atom()) -> ok.
-respond_to_target(Target, Message) ->
-    TargetType = get_target_type(Target),
-    case TargetType of
-        function ->
+-spec respond_to_target(Target::target(), Message::any()) -> ok.
+respond_to_target({function, Target}, Message) ->
             Target(Message);
-        process -> 
-            Target ! Message
-    end.
+respond_to_target({debug, _}, Message) ->
+            lager:debug("Message:~p~n", [Message]);
+respond_to_target({process, Target}, Message) ->
+            Target ! Message;
+respond_to_target({gen_server, Target}, Message) ->
+    gen_server:reply(Target, Message);
+respond_to_target({self, _}, Message) ->
+    Message.
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
@@ -140,7 +142,3 @@ get_child_pid(Type) ->
             lists:nth(Index, PidList)
     end.
 
-get_target_type(Target) when is_function(Target, 1) ->
-    function;
-get_target_type(Target) when is_pid(Target) orelse is_atom(Target) ->
-    process.

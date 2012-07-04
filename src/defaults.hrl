@@ -27,6 +27,8 @@
 -define(TWITTERL_STREAM_PROCESSOR, twitterl_stream_processor).
 -define(TWITTERL_REQUEST_TYPE_REST, rest).
 -define(TWITTERL_REQUEST_TYPE_STREAM, stream).
+-define(TWITTERL_HTTP_REQUEST_TYPE_GET, get).
+-define(TWITTERL_HTTP_REQUEST_TYPE_POST, post).
 -define(TWITTERL_TWEET_PARSER_COUNT, 2).
 -define(TWITTERL_REQUESTOR_COUNT, 2).
 -define(TWITTERL_RETRY_COUNT, 5).
@@ -41,11 +43,18 @@
 -define(REQUEST_COMPLETED, request_completed).
 
 %% Twitter API URLs
--define(TWITTER_FAVORITES_URL, "https://api.twitter.com/1/favorites.json").
--define(TWITTER_HOME_TIMELINE_URL, "https://api.twitter.com/1/statuses/home_timeline.json").
--define(TWITTER_REQUEST_TOKEN_URL, "https://api.twitter.com/oauth/request_token").
--define(TWITTER_ACCESS_TOKEN_URL, "https://api.twitter.com/oauth/access_token").
--define(TWITTER_STATUS_UPDATE_URL, "https://api.twitter.com/1/statuses/update.json").
+-define(TWITTER_FAVORITES, {rest, get, "https://api.twitter.com/1/favorites.json"}).
+-define(TWITTER_HOME_TIMELINE, {rest, get, "https://api.twitter.com/1/statuses/home_timeline.json"}).
+-define(TWITTER_USER_TIMELINE, {rest, get, "https://api.twitter.com/1/statuses/user_timeline.json"}).
+-define(TWITTER_MENTIONS, {rest, get, "https://api.twitter.com/1/statuses/mentions.json"}).
+-define(TWITTER_RETWEETED_BY_ME, {rest, get, "https://api.twitter.com/1/statuses/retweeted_by_me.json"}).
+-define(TWITTER_RETWEETED_TO_ME, {rest, get, "https://api.twitter.com/1/statuses/retweeted_to_me.json"}).
+-define(TWITTER_RETWEETS_OF_ME, {rest, get, "https://api.twitter.com/1/statuses/retweets_of_me.json"}).
+-define(TWITTER_RETWEETED_TO_USER, {rest, get, "https://api.twitter.com/1/statuses/retweeted_to_user.json"}).
+-define(TWITTER_RETWEETED_BY_USER, {rest, get, "https://api.twitter.com/1/statuses/retweeted_by_user.json"}).
+-define(TWITTER_REQUEST_TOKEN, {rest, get, "https://api.twitter.com/oauth/request_token"}).
+-define(TWITTER_ACCESS_TOKEN, {rest, post, "https://api.twitter.com/oauth/access_token"}).
+-define(TWITTER_STATUS_UPDATE, {rest, post, "https://api.twitter.com/1/statuses/update.json"}).
 
 %% Callback URL
 -define(TWITTERL_CALLBACK_URL, "http://www.posttestserver.com").
@@ -55,9 +64,11 @@
 %% Types
 %%
 -type error()                                 :: {error, Reason :: term()}.
+-type request_reference()                     :: {pid(), pid()}.
 -type request_type()                          :: stream|rest.
+-type http_request_type()                     :: get|post.
 -type process_name()                          :: request_type().
--type target()                                :: pid() | atom() | fun().
+-type target()                                :: {atom(), pid() | atom() | fun()}.
 -type request_id()                            :: {pid(), pid()}.
 -type token()                                 :: binary().
 -type secret()                                :: binary().

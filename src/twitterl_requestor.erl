@@ -24,13 +24,13 @@
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
--export([get_request/2, get_request/3, get_request/5, process_request/3, process_request/4,
+-export([get_request/2, get_request/3, get_request/5, process_request/7,
          stop_request/1]).
 
 % Authorization
--export([get_request_token/0, get_request_token/1, get_access_token/3]).
+-export([get_consumer/0, get_request_token/1, get_access_token/3]).
 % Status
--export([update_status/3]).
+-export([status_update/3]).
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -70,19 +70,13 @@ get_request(Method, URL, Params, Token, Secret) ->
 
 %%% Request processing
 
-%% @doc Run the request on the URL in stream or REST mode. The result will be
-%%          sent to Target
--spec process_request(Target::target(), URL::string(), RequestType::rest|stream) -> any().
-process_request(Target, RequestType, URL) -> 
-    process_request(Target, RequestType, URL, []).
-
 %% @doc Run the request on the URL and Params in stream or REST mode. The result will be
 %%          sent to Target
--spec process_request(Target::target(), RequestType::rest|stream, URL::string(), Params::list()) -> {ok, pid()} | error().
-process_request(Target, RequestType, URL, Params) -> 
-    twitterl_util:validate_request_type(RequestType),
-    Request = get_request(URL, Params),
-    twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Request, RequestType, Target}).
+-spec process_request(target(), request_type(), http_request_type(), url(), params(), token(), secret()) -> {ok, request_reference()} | error().
+process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret) -> 
+    Consumer = get_consumer(),
+    SendFun = fun(Dest, Data) -> send_tweet_to_target(Dest, Data) end,
+    twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun}).
 
 %% @doc Stop a given request gracefully
 -spec stop_request(RequestId::request_id()) -> ok.
@@ -91,24 +85,25 @@ stop_request({ServerProcess, RequestPid}) ->
 
 %%% Authorization
 
-%% @doc Get a request token
--spec get_request_token() -> #twitter_token_data{} | error().
-get_request_token() ->
-    get_request_token(?TWITTERL_CALLBACK_URL).
+%% @doc Get the consumer for this app
+-spec get_consumer() -> consumer().
+get_consumer() ->
+    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_consumer}).
 
+%% @doc Get a request token
 -spec get_request_token(url()) -> #twitter_token_data{} | error().
-get_request_token(URL) ->
-    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_request_token, URL}).
+get_request_token(TargetURL) ->
+    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_request_token, TargetURL}).
 
 %% @doc Get a request token
--spec get_access_token(token(), secret(), verifier()) -> #twitter_access_data{} | error().
-get_access_token(Token, Secret, Verifier) ->
-    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_access_token, Token, Secret, Verifier}).
+-spec get_access_token(verifier(), token(), secret()) -> #twitter_access_data{} | error().
+get_access_token(Verifier, Token, Secret) ->
+    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_access_token, Verifier, Token, Secret}).
 
 %% @doc Status
--spec update_status(token(), secret(), status()) -> #tweet{} | error().
-update_status(Token, Secret, Status) ->
-    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {update_status, Token, Secret, Status}).
+-spec status_update(status(), token(), secret()) -> #tweet{} | error().
+status_update(Status, Token, Secret) ->
+    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {update_status, Status, Token, Secret}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -123,45 +118,65 @@ init(_Args) ->
     State = #requestor_state{oauth_data = OAuthData},
     {ok, State}.
 
-handle_call({get_request_token, URL}, _From, State) ->
-    SURL = twitterl_util:get_string(URL),
-    OAuthData = State#requestor_state.oauth_data,
-    Reply = case process_post(?TWITTER_REQUEST_TOKEN_URL, [{"oauth_callback", SURL}], OAuthData) of
-        {error, _} = Error ->
-            Error;
-        Response ->
-            Data = oauth:params_decode(Response),
-            validate_tokens(Data)
-    end,
-    {reply, Reply, State};
+handle_call({get_request_token, TargetURL}, From, State) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_REQUEST_TOKEN,
+    Target  = {gen_server, From},
 
-handle_call({get_access_token, Token, Secret, Verifier}, _From, State) ->
+    STargetURL = twitterl_util:get_string(TargetURL),
+    Params = [{"oauth_callback", STargetURL}],
+
     OAuthData = State#requestor_state.oauth_data,
+    Consumer = get_consumer(OAuthData),
+
+    SToken = "",
+    SSecret = "",
+
+    % Send reply to the invoker
+    SendFun = fun(Dest, Data) -> send_token_to_target(Dest, Data) end,
+    spawn_request(RequestType, Target, HttpRequestType, URL, Params, Consumer, SToken, SSecret, SendFun),
+    {noreply, State};
+
+handle_call({get_access_token, Verifier, Token, Secret}, From, State) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_ACCESS_TOKEN,
+    Target  = {gen_server, From},
+
     SVerifier = twitterl_util:get_string(Verifier),
-    SToken = twitterl_util:get_string(Token),
-    SSecret = twitterl_util:get_string(Secret),
-    Reply = case process_post(?TWITTER_ACCESS_TOKEN_URL, [{"oauth_verifier", SVerifier}], OAuthData, SToken, SSecret) of
-        {error, _} = Error ->
-            Error;
-        Response ->
-            Data = oauth:params_decode(Response),
-            validate_access(Data)
-    end,
-    {reply, Reply, State};
+    Params = [{"oauth_verifier", SVerifier}],
 
-handle_call({update_status, Token, Secret, Status}, _From, State) ->
     OAuthData = State#requestor_state.oauth_data,
-%    SStatus = twitterl_util:get_string(bstr:urlencode(Status)),
-    SStatus = twitterl_util:get_string(Status),
+    Consumer = get_consumer(OAuthData),
+
     SToken = twitterl_util:get_string(Token),
     SSecret = twitterl_util:get_string(Secret),
-    Reply = case process_post(?TWITTER_STATUS_UPDATE_URL, [{"status", SStatus}], OAuthData, SToken, SSecret) of
-        {error, _} = Error ->
-            Error;
-        Response ->
-            validate_tweet(Response)
-    end,
-    {reply, Reply, State};
+
+    % Send reply to the invoker
+    SendFun = fun(Dest, Data) -> send_access_to_target(Dest, Data) end,
+    spawn_request(RequestType, Target, HttpRequestType, URL, Params, Consumer, SToken, SSecret, SendFun),
+    {noreply, State};
+
+handle_call({get_consumer}, _From, State) ->
+    OAuthData = State#requestor_state.oauth_data,
+    Consumer = get_consumer(OAuthData),
+    {reply, Consumer, State};
+
+handle_call({update_status, Status, Token, Secret}, From, State) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUS_UPDATE,
+    Target  = {gen_server, From},
+
+    SStatus = twitterl_util:get_string(Status),
+    Params = [{"status", SStatus}],
+
+    OAuthData = State#requestor_state.oauth_data,
+    Consumer = get_consumer(OAuthData),
+
+    SToken = twitterl_util:get_string(Token),
+    SSecret = twitterl_util:get_string(Secret),
+
+    SendFun = fun(Dest, Data) -> send_tweet_to_target(Dest, Data) end,
+    % Send reply to the invoker
+    spawn_request(RequestType, Target, HttpRequestType, URL, Params, Consumer, SToken, SSecret, SendFun),
+    {noreply, State};
+
 
 handle_call(_Request, _From, State) ->
     lager:debug("3, ~p~n", [_Request]),
@@ -231,7 +246,42 @@ build_request(URL, SignedRequest) ->
     lager:debug("A:~p~n, Q:~p~n", [AuthorizationParams, QueryParams]),
     {oauth:uri(URL, QueryParams), [oauth:header(AuthorizationParams)]}.
 
-validate_tokens(Tokens) ->
+-spec send_token_to_target(target(), list()) -> any().
+send_token_to_target(Target, Tokens) ->
+    try
+        TokenData = validate_tokens(Tokens),
+        twitterl_manager:respond_to_target(Target, TokenData)
+    catch
+        _:Error ->
+            twitterl_manager:respond_to_target(Target, {error, Error})
+    end.
+
+-spec send_access_to_target(target(), list()) -> any().
+send_access_to_target(Target, Data) ->
+    try
+        AccessData = extract_access(Data),
+        twitterl_manager:respond_to_target(Target, AccessData)
+    catch
+        _:Error ->
+            twitterl_manager:respond_to_target(Target, {error, Error})
+    end.
+    
+-spec extract_access(list()) -> #twitter_access_data{}.
+extract_access(Response) ->
+    Data = oauth:uri_params_decode(Response),
+    Token = get_token(Data),
+    Secret = get_secret(Data),
+    UserId = get_user_id(Data),
+    ScreenName = get_screen_name(Data),
+    #twitter_access_data{
+        access_token = Token,
+        access_token_secret = Secret,
+        user_id = UserId,
+        screen_name = ScreenName}.
+
+-spec validate_tokens(list()) -> #twitter_token_data{} | error().
+validate_tokens(Response) ->
+    Tokens = oauth:uri_params_decode(Response),
     case proplists:get_value("oauth_callback_confirmed", Tokens) of
         "true" ->
             extract_tokens(Tokens);
@@ -239,49 +289,16 @@ validate_tokens(Tokens) ->
             {error, ?INVALID_REQUEST_TYPE}
     end.
 
+
+-spec extract_tokens(list()) -> #twitter_token_data{} | error().
 extract_tokens(Tokens) ->
-    try
-        Token = get_token(Tokens),
-        Secret = get_secret(Tokens),
-        #twitter_token_data{
-            access_token = Token,
-            access_token_secret = Secret}
-    catch
-        _:Error ->
-            {error, Error}
-    end.
+    Token = get_token(Tokens),
+    Secret = get_secret(Tokens),
+    #twitter_token_data{
+        access_token = Token,
+        access_token_secret = Secret}.
 
-validate_access(Data) ->
-    try
-        Token = get_token(Data),
-        Secret = get_secret(Data),
-        UserId = get_user_id(Data),
-        ScreenName = get_screen_name(Data),
-        #twitter_access_data{
-            access_token = Token,
-            access_token_secret = Secret,
-            user_id = UserId,
-            screen_name = ScreenName}
-    catch
-        _:Error ->
-            {error, Error}
-    end.
-
-validate_tweet(Data) ->
-    try
-        case Data of
-            {_, _, Body} ->
-                JsonBody = ejson:decode(Body),
-                twitterl_tweet_parser:parse_one_tweet(JsonBody);
-            Error ->
-                {error, Error}
-        end
-    catch
-        _:Error1 ->
-            {error, Error1}
-    end.
-
-
+-spec get_token(list()) -> binary().
 get_token(Tokens) ->
     case twitterl_util:keysearch("oauth_token", 1, undefined, Tokens) of
         undefined ->
@@ -289,6 +306,7 @@ get_token(Tokens) ->
         Token -> twitterl_util:get_binary(Token)
     end.
 
+-spec get_secret(list()) -> binary().
 get_secret(Tokens) ->
     case twitterl_util:keysearch("oauth_token_secret", 1, undefined, Tokens) of
         undefined ->
@@ -296,6 +314,7 @@ get_secret(Tokens) ->
         Token -> twitterl_util:get_binary(Token)
     end.
 
+-spec get_user_id(list()) -> binary().
 get_user_id(Tokens) ->
     case twitterl_util:keysearch("user_id", 1, undefined, Tokens) of
         undefined ->
@@ -303,6 +322,7 @@ get_user_id(Tokens) ->
         Token -> twitterl_util:get_binary(Token)
     end.
 
+-spec get_screen_name(list()) -> binary().
 get_screen_name(Tokens) ->
     case twitterl_util:keysearch("screen_name", 1, undefined, Tokens) of
         undefined ->
@@ -310,37 +330,24 @@ get_screen_name(Tokens) ->
         Token -> twitterl_util:get_binary(Token)
     end.
 
-%% @doc post to the URL
--spec process_post(url(), params(), #twitter_oauth_data{}) -> list().
-process_post(URL, Params, OAuthData) ->
-    Consumer = get_consumer(OAuthData),
-    check_response(oauth:post(URL, Params, Consumer)).
 
--spec process_post(url(), params(), #twitter_oauth_data{}, token(), secret()) -> list().
-process_post(URL, Params, OAuthData, Token, Secret) ->
-    Consumer = get_consumer(OAuthData),
-    check_response(oauth:post(URL, Params, Consumer, Token, Secret)).
+%% @doc Sends the data back to the calling process
+%%      <<"\r\n">> needs to be ignored
 
-%% @doc Check the http request for errors
--spec check_response(any()) -> any().
-check_response(Response) ->
-    lager:debug("Response:~p~n", [Response]),
+send_tweet_to_target(_Target, <<"\r\n">>) ->
+         ok;
+send_tweet_to_target(Target, BinBodyPart) ->
     try
-        case Response of
-            {ok, {{_, 401, _} = _Status, _Headers, _Body} = _Response} ->
-                lager:debug("Response:~p~n", [Response]),
-                {error, ?AUTH_ERROR};
-            {ok, {{_, 403, _} = _Status, _Headers, Body} = _Response} ->
-                lager:debug("Response:~p~n", [Response]),
-                {error, Body};
-            {ok, {{_, 200, _} = _Status, _Headers, _Body} = Result} ->
-                Result;
-            {ok, Result} ->
-                Result;
-            Other ->
-                {error, Other}
-        end
+        JsonBodyPart = ejson:decode(BinBodyPart),
+        lager:debug("returning data to:~p, JsonBodyPart:~p~n, BinBodyPart:~p~n", [Target, JsonBodyPart, BinBodyPart]),
+        twitterl_tweet_parser:parse_tweets(JsonBodyPart, Target)
     catch
-        _:Error ->
-            {error, Error}
+        Class:Reason -> 
+            lager:debug("catch send_tweet_to_target Class:~p~n, Reason:~p~n", [Class, Reason])
     end.
+
+spawn_request(RequestType, Target, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) ->
+    proc_lib:spawn_link(
+        fun() -> twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun})
+        end).
+

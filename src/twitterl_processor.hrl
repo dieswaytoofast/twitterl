@@ -21,8 +21,14 @@
 
 -record(request_details, {
             pid :: pid(),
-            request_type    :: request_type(),
-            target         :: target(),
-            request         :: list(),
-            retry_count         :: integer()
+            target                  :: target(),
+            request_type            :: request_type(),
+            http_request_type       :: http_request_type(),
+            url                     :: url(),
+            params                  :: params(),
+            consumer                :: consumer(),
+            token                   :: token(),
+            secret                  :: secret(),
+            send_function           :: function(),
+            retry_count             :: integer()
             }).

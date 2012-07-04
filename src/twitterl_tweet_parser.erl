@@ -15,8 +15,7 @@
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
--export([parse_many_tweets/2]).
--export([parse_one_tweet/1, parse_one_tweet/2]).
+-export([parse_tweets/1, parse_tweets/2]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -34,18 +33,13 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
-parse_many_tweets(JsonBody, Target) ->
-    lager:debug("JsonBody:~p~n, Target:~p~n", [JsonBody, Target]),
-    twitterl_manager:safe_cast(?TWITTERL_TWEET_PARSER, {parse_many_tweets, JsonBody, Target}).
-
-parse_one_tweet(JsonBody) ->
+parse_tweets(JsonBody) ->
     lager:debug("JsonBody:~p~n", [JsonBody]),
-    twitterl_manager:safe_call(?TWITTERL_TWEET_PARSER, {parse_one_tweet, JsonBody}).
+    twitterl_manager:safe_call(?TWITTERL_TWEET_PARSER, {parse_tweets, JsonBody}).
 
-parse_one_tweet(JsonBody, Target) ->
+parse_tweets(JsonBody, Target) ->
     lager:debug("JsonBody:~p~n, Target:~p~n", [JsonBody, Target]),
-    twitterl_manager:safe_cast(?TWITTERL_TWEET_PARSER, {parse_one_tweet, JsonBody, Target}).
-
+    twitterl_manager:safe_cast(?TWITTERL_TWEET_PARSER, {parse_tweets, JsonBody, Target}).
 
 
 %% ------------------------------------------------------------------
@@ -62,23 +56,18 @@ init([]) ->
     State = #tweet_parser_state{},
     {ok, State}.
 
-handle_call({parse_one_tweet, JsonBody}, _From, State) ->
+handle_call({parse_tweets, JsonBody}, _From, State) ->
     lager:debug("1.5, ~p~n", [JsonBody]),
-    Reply = parse_one_tweet_internal(JsonBody),
+    Reply = parse_tweets_internal(JsonBody),
     {reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
     lager:debug("2, ~p~n", [_Request]),
     {reply, ok, State}.
 
-handle_cast({parse_many_tweets, JsonBody, Target} = _Req, State) ->
+handle_cast({parse_tweets, JsonBody, Target} = _Req, State) ->
     lager:debug("3, ~p~n", [_Req]),
-    _Pid = proc_lib:spawn_link(fun() -> parse_many_tweets_internal(JsonBody, Target) end),
-    {noreply, State};
-
-handle_cast({parse_one_tweet, JsonBody, Target} = _Req, State) ->
-    lager:debug("3, ~p~n", [_Req]),
-    _Pid = proc_lib:spawn_link(fun() -> parse_one_tweet_internal(JsonBody, Target) end),
+    _Pid = proc_lib:spawn_link(fun() -> parse_tweets_internal(JsonBody, Target) end),
     {noreply, State};
 
 handle_cast(_Msg, State) ->
@@ -106,7 +95,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
-parse_many_tweets_internal(JsonBody, Target) ->
+parse_tweets_internal(JsonBody, Target) when is_list(JsonBody) ->
     lists:map(fun
             ({Tweet}) ->
                 case twitterl_parser_util:parse({tweet, Tweet}) of
@@ -115,24 +104,24 @@ parse_many_tweets_internal(JsonBody, Target) ->
                     _ ->
                         void
                 end
-        end,  JsonBody).
+        end,  JsonBody);
 
 %%  Deal with JsonBody of {[{<<"friends">>,[]}]}
-parse_one_tweet_internal({JsonBody}) ->
-    case twitterl_parser_util:parse({tweet, JsonBody}) of
-        {ok, TweetRecord} ->
-            TweetRecord;
-        Error ->
-            Error
-    end.
-
-%%  Deal with JsonBody of {[{<<"friends">>,[]}]}
-parse_one_tweet_internal({JsonBody}, Target) ->
+parse_tweets_internal({JsonBody}, Target) ->
     case twitterl_parser_util:parse({tweet, JsonBody}) of
         {ok, TweetRecord} ->
             twitterl_manager:respond_to_target(Target, TweetRecord);
         Error ->
             twitterl_manager:respond_to_target(Target, Error)
+    end.
+
+%%  Deal with JsonBody of {[{<<"friends">>,[]}]}
+parse_tweets_internal({JsonBody}) ->
+    case twitterl_parser_util:parse({tweet, JsonBody}) of
+        {ok, TweetRecord} ->
+            TweetRecord;
+        Error ->
+            Error
     end.
 
 

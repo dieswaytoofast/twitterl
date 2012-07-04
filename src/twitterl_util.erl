@@ -12,6 +12,7 @@
 -include("defaults.hrl").
 
 -export([validate_request_type/1]).
+-export([validate_http_request_type/1]).
 -export([keysearch/3, keysearch/4]).
 -export([required/2]).
 -export([validate_list_of_binaries/2]).
@@ -81,6 +82,14 @@ validate_request_type(?TWITTERL_REQUEST_TYPE_STREAM) ->
 validate_request_type(?TWITTERL_REQUEST_TYPE_REST) ->
     ok;
 validate_request_type(_) ->
+    throw({error, ?INVALID_REQUEST_TYPE}).
+
+-spec validate_http_request_type(Type::http_request_type()) -> ok.
+validate_http_request_type(?TWITTERL_HTTP_REQUEST_TYPE_GET) ->
+    ok;
+validate_http_request_type(?TWITTERL_HTTP_REQUEST_TYPE_POST) ->
+    ok;
+validate_http_request_type(_) ->
     throw({error, ?INVALID_REQUEST_TYPE}).
 
 %% @doc Check if Value is an 'empty' parameter
