@@ -1,6 +1,7 @@
 twitterl
 ========
 
+Inspiration based on https://github.com/ngerakines/erlang_twitter
+
 Use at your own risk.
 
-Actually, don't use, since it quite probably won't work at all :-)

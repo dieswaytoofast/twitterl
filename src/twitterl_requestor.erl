@@ -24,13 +24,11 @@
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
--export([get_request/2, get_request/3, get_request/5, process_request/7,
-         stop_request/1]).
+-export([process_request/7, stop_request/1]).
 
 % Authorization
 -export([get_consumer/0, get_request_token/1, get_access_token/3]).
 % Status
--export([status_update/3]).
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -48,35 +46,16 @@
 %% ------------------------------------------------------------------
 
 
-%%% Viewing requests
-
-%% @doc get the http Request associated with the URL
--spec get_request(method, url()) -> [{string(), string()}].
-get_request(Method, URL) ->
-    get_request(Method, URL, []).
-
-%% @doc get the http Request associated with the URL and Params
--spec get_request(method(), url(), params()) -> [{string(), string()}].
-get_request(Method, URL, Params) ->
-    OAuthData = get_oauth_data(),
-    create_request(OAuthData, Method, URL, Params).
-
-%% @doc get the http Request associated with the URL and Params
--spec get_request(method(), url(), params(), token(), secret()) -> [{string(), string()}].
-get_request(Method, URL, Params, Token, Secret) ->
-    OAuthData = get_oauth_data(),
-    create_request(OAuthData, Method, URL, Params, Token, Secret).
-
-
 %%% Request processing
-
 %% @doc Run the request on the URL and Params in stream or REST mode. The result will be
 %%          sent to Target
 -spec process_request(target(), request_type(), http_request_type(), url(), params(), token(), secret()) -> {ok, request_reference()} | error().
 process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret) -> 
     Consumer = get_consumer(),
+    SToken = twitterl_util:get_string(Token),
+    SSecret = twitterl_util:get_string(Secret),
     SendFun = fun(Dest, Data) -> send_tweet_to_target(Dest, Data) end,
-    twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun}).
+    twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Target, RequestType, HttpRequestType, URL, Params, Consumer, SToken, SSecret, SendFun}).
 
 %% @doc Stop a given request gracefully
 -spec stop_request(RequestId::request_id()) -> ok.
@@ -84,7 +63,6 @@ stop_request({ServerProcess, RequestPid}) ->
     gen_server:cast(ServerProcess, {stop_request, RequestPid}).
 
 %%% Authorization
-
 %% @doc Get the consumer for this app
 -spec get_consumer() -> consumer().
 get_consumer() ->
@@ -99,11 +77,6 @@ get_request_token(TargetURL) ->
 -spec get_access_token(verifier(), token(), secret()) -> #twitter_access_data{} | error().
 get_access_token(Verifier, Token, Secret) ->
     twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {get_access_token, Verifier, Token, Secret}).
-
-%% @doc Status
--spec status_update(status(), token(), secret()) -> #tweet{} | error().
-status_update(Status, Token, Secret) ->
-    twitterl_manager:safe_call(?TWITTERL_REQUESTOR, {update_status, Status, Token, Secret}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -159,25 +132,6 @@ handle_call({get_consumer}, _From, State) ->
     Consumer = get_consumer(OAuthData),
     {reply, Consumer, State};
 
-handle_call({update_status, Status, Token, Secret}, From, State) ->
-    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUS_UPDATE,
-    Target  = {gen_server, From},
-
-    SStatus = twitterl_util:get_string(Status),
-    Params = [{"status", SStatus}],
-
-    OAuthData = State#requestor_state.oauth_data,
-    Consumer = get_consumer(OAuthData),
-
-    SToken = twitterl_util:get_string(Token),
-    SSecret = twitterl_util:get_string(Secret),
-
-    SendFun = fun(Dest, Data) -> send_tweet_to_target(Dest, Data) end,
-    % Send reply to the invoker
-    spawn_request(RequestType, Target, HttpRequestType, URL, Params, Consumer, SToken, SSecret, SendFun),
-    {noreply, State};
-
-
 handle_call(_Request, _From, State) ->
     lager:debug("3, ~p~n", [_Request]),
     {reply, ok, State}.
@@ -215,36 +169,6 @@ get_consumer(OAuthData) ->
     {OAuthData#twitter_oauth_data.consumer_key,
      OAuthData#twitter_oauth_data.consumer_secret,
      hmac_sha1}.
-
-%% @doc Sign the Request
--spec sign_request(#twitter_oauth_data{}, string_method(), url(), params()) -> [{string(), string()}].
-sign_request(OAuthData, StringMethod, URL, Params) -> 
-    Token = OAuthData#twitter_oauth_data.access_token, 
-    Secret = OAuthData#twitter_oauth_data.access_token_secret, 
-    sign_request(OAuthData, StringMethod, URL, Params, Token, Secret).
-
--spec sign_request(#twitter_oauth_data{}, string_method(), url(), params(), token(), secret()) -> [{string(), string()}].
-sign_request(OAuthData, StringMethod, URL, Params, Token, Secret) -> 
-    Consumer = get_consumer(OAuthData),
-    oauth:sign(StringMethod, URL, Params, Consumer, Token, Secret).
-
-%% @doc Create the Request
--spec create_request(#twitter_oauth_data{}, method(), url(), params()) -> [{string(), string()}].
-create_request(OAuthData, Method, URL, Params) -> 
-    StringMethod = twitterl_util:get_string_method(Method),
-    SignedRequest = sign_request(OAuthData, StringMethod, URL, Params),
-    build_request(URL, SignedRequest).
-
--spec create_request(#twitter_oauth_data{}, method(), url(), params(), token(), secret()) -> [{string(), string()}].
-create_request(OAuthData, Method, URL, Params, Token, Secret) -> 
-    StringMethod = twitterl_util:get_string_method(Method),
-    SignedRequest = sign_request(OAuthData, StringMethod, URL, Params, Token, Secret),
-    build_request(URL, SignedRequest).
-
-build_request(URL, SignedRequest) ->
-    {AuthorizationParams, QueryParams} = lists:partition(fun({K, _}) -> lists:prefix("oauth_", K) end, SignedRequest),
-    lager:debug("A:~p~n, Q:~p~n", [AuthorizationParams, QueryParams]),
-    {oauth:uri(URL, QueryParams), [oauth:header(AuthorizationParams)]}.
 
 -spec send_token_to_target(target(), list()) -> any().
 send_token_to_target(Target, Tokens) ->

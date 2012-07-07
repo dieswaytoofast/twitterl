@@ -21,13 +21,22 @@
 -export([get_request_token/0, get_request_token/1, get_access_token/3]).
 -export([statuses_home_timeline/4, 
          statuses_user_timeline/4,
+         statuses_user_timeline_stream/4,
          statuses_retweeted_by_me/4,
          statuses_retweeted_to_me/4,
          statuses_retweets_of_me/4,
          statuses_retweeted_to_user/4,
          statuses_retweeted_by_user/4,
          statuses_mentions/4]).
--export([status_update/3]).
+-export([statuses_update/4,
+         statuses_update_with_media/4,
+         statuses_destroy/5,
+         statuses_retweeted_by/5,
+         statuses_retweeted_by_ids/5,
+         statuses_retweets/5,
+         statuses_retweet/5,
+         statuses_oembed/4,
+         statuses_show/4]).
 
 -export([setup/0]).
 
@@ -133,6 +142,11 @@ statuses_user_timeline(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_USER_TIMELINE,
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
+-spec statuses_user_timeline_stream(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
+statuses_user_timeline_stream(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_USER_TIMELINE_STREAM,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
 -spec statuses_mentions(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
 statuses_mentions(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_MENTIONS,
@@ -167,6 +181,60 @@ statuses_retweeted_by_user(Target, Params, Token, Secret) ->
 
 %%% Status
 %% @doc Update Status
--spec status_update(status(), token(), secret()) -> #tweet{} | error().
-status_update(Status, Token, Secret) ->
-    twitterl_requestor:status_update(Status, Token, Secret).
+-spec statuses_update(target(), params(), token(), secret()) -> #tweet{} | error().
+statuses_update(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUS_UPDATE,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc Update Status
+-spec statuses_update_with_media(target(), params(), token(), secret()) -> #tweet{} | error().
+statuses_update_with_media(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUS_UPDATE_WITH_MEDIA,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc Show Status
+-spec statuses_show(target(), params(), token(), secret()) -> #tweet{} | error().
+statuses_show(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUS_SHOW,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc Destroy Status
+-spec statuses_destroy(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
+statuses_destroy(Target, StatusId, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_DESTROY,
+    URL = twitterl_util:format_url([BaseURL, "/", StatusId, ".json"]),
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc Users that retweeted status
+-spec statuses_retweeted_by(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
+statuses_retweeted_by(Target, StatusId, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEETED_BY,
+    URL = twitterl_util:format_url([BaseURL, "/", StatusId, "/retweeted_by.json"]),
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc User ids that retweeted status
+-spec statuses_retweeted_by_ids(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
+statuses_retweeted_by_ids(Target, StatusId, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEETED_BY,
+    URL = twitterl_util:format_url([BaseURL, "/", StatusId, "/retweeted_by/ids.json"]),
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc Retweets of a given tweet
+-spec statuses_retweets(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
+statuses_retweets(Target, StatusId, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEETS,
+    URL = twitterl_util:format_url([BaseURL, "/", StatusId, ".json"]),
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc Retweet a given tweet
+-spec statuses_retweet(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
+statuses_retweet(Target, StatusId, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEET,
+    URL = twitterl_util:format_url([BaseURL, "/", StatusId, ".json"]),
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+%% @doc Oembed a given tweet
+-spec statuses_oembed(target(), params(), token(), secret()) -> #tweet{} | error().
+statuses_oembed(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUS_OEMBED,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).

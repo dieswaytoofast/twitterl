@@ -9,6 +9,7 @@
 %% Errors
 %%
 -define(AUTH_ERROR, authentication_error).
+-define(DEAD_PROCESS, dead_process).
 -define(RATE_ERROR, rate_error).
 -define(INVALID_REQUEST_TYPE, invalid_request_type).
 -define(EMPTY_ERROR, empty).
@@ -46,6 +47,7 @@
 -define(TWITTER_FAVORITES, {rest, get, "https://api.twitter.com/1/favorites.json"}).
 -define(TWITTER_HOME_TIMELINE, {rest, get, "https://api.twitter.com/1/statuses/home_timeline.json"}).
 -define(TWITTER_USER_TIMELINE, {rest, get, "https://api.twitter.com/1/statuses/user_timeline.json"}).
+-define(TWITTER_USER_TIMELINE_STREAM, {stream, post, "https://userstream.twitter.com/2/user.json"}).
 -define(TWITTER_MENTIONS, {rest, get, "https://api.twitter.com/1/statuses/mentions.json"}).
 -define(TWITTER_RETWEETED_BY_ME, {rest, get, "https://api.twitter.com/1/statuses/retweeted_by_me.json"}).
 -define(TWITTER_RETWEETED_TO_ME, {rest, get, "https://api.twitter.com/1/statuses/retweeted_to_me.json"}).
@@ -55,6 +57,13 @@
 -define(TWITTER_REQUEST_TOKEN, {rest, get, "https://api.twitter.com/oauth/request_token"}).
 -define(TWITTER_ACCESS_TOKEN, {rest, post, "https://api.twitter.com/oauth/access_token"}).
 -define(TWITTER_STATUS_UPDATE, {rest, post, "https://api.twitter.com/1/statuses/update.json"}).
+-define(TWITTER_STATUS_UPDATE_WITH_MEDIA, {rest, post, "https://api.twitter.com/1/statuses/update_with_media.json"}).
+-define(TWITTER_STATUS_SHOW, {rest, get, "https://api.twitter.com/1/statuses/show.json"}).
+-define(TWITTER_STATUS_DESTROY, {rest, post, "https://api.twitter.com/1/statuses/destroy"}).
+-define(TWITTER_STATUS_RETWEETED_BY, {rest, post, "https://api.twitter.com/1/statuses"}).
+-define(TWITTER_STATUS_RETWEETS, {rest, post, "https://api.twitter.com/1/statuses/retweets"}).
+-define(TWITTER_STATUS_RETWEET, {rest, post, "https://api.twitter.com/1/statuses/retweet"}).
+-define(TWITTER_STATUS_OEMBED, {rest, post, "https://api.twitter.com/1/statuses/oembed"}).
 
 %% Callback URL
 -define(TWITTERL_CALLBACK_URL, "http://www.posttestserver.com").
@@ -70,6 +79,7 @@
 -type process_name()                          :: request_type().
 -type target()                                :: {atom(), pid() | atom() | fun()}.
 -type request_id()                            :: {pid(), pid()}.
+-type status_id()                             :: binary().
 -type token()                                 :: binary().
 -type secret()                                :: binary().
 -type status()                                :: binary().

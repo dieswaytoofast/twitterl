@@ -21,7 +21,7 @@
 -export([get_string/1]).
 -export([get_binary/1]).
 
--export([get_string_method/1]).
+-export([format_url/1]).
 
 %%
 %% General Utilities
@@ -66,10 +66,15 @@ get_binary(_) -> {error, ?INVALID_BINARY}.
 %%
 %% Parameters
 %% 
--spec get_string_method(atom()) -> string().
-get_string_method(get) -> "GET";
-get_string_method(post) -> "POST";
-get_string_method(_) -> "GET".
+format_url(Params) when is_list(Params) ->
+    Result = 
+    lists:foldr(fun(X, Acc) ->
+                    SX = get_string(X),
+                    [SX|Acc]
+            end, [], Params),
+    lists:flatten(Result).
+
+
 
 %%
 %% Validations
