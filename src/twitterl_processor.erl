@@ -227,7 +227,7 @@ receive_data(Target, RequestId, SendFun) ->
             receive_data(Target, RequestId, SendFun);
         %% Data continues
         {http,{RequestId, stream, BinBodyPart}} ->
-            ok = validate_target(Target),
+            validate_target(Target),
             proc_lib:spawn_link(fun() -> SendFun(Target, BinBodyPart) end),
             receive_data(Target, RequestId, SendFun);
         %% Data ends
