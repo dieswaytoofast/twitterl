@@ -31,7 +31,6 @@ parse({tweet, Values}) ->
         true ->
             {error, ?EMPTY_ERROR};
         _ ->
-            lager:debug("Tweet:~p~n", [Tweet]),
             {ok, Tweet}
     end.
 

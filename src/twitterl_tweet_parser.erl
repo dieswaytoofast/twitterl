@@ -34,11 +34,9 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 parse_tweets(JsonBody) ->
-    lager:debug("JsonBody:~p~n", [JsonBody]),
     twitterl_manager:safe_call(?TWITTERL_TWEET_PARSER, {parse_tweets, JsonBody}).
 
 parse_tweets(JsonBody, Target) ->
-    lager:debug("JsonBody:~p~n, Target:~p~n", [JsonBody, Target]),
     twitterl_manager:safe_cast(?TWITTERL_TWEET_PARSER, {parse_tweets, JsonBody, Target}).
 
 
@@ -57,16 +55,13 @@ init([]) ->
     {ok, State}.
 
 handle_call({parse_tweets, JsonBody}, _From, State) ->
-    lager:debug("1.5, ~p~n", [JsonBody]),
     Reply = parse_tweets_internal(JsonBody),
     {reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
-    lager:debug("2, ~p~n", [_Request]),
     {reply, ok, State}.
 
 handle_cast({parse_tweets, JsonBody, Target} = _Req, State) ->
-    lager:debug("3, ~p~n", [_Req]),
     _Pid = proc_lib:spawn_link(fun() -> parse_tweets_internal(JsonBody, Target) end),
     {noreply, State};
 
@@ -77,16 +72,13 @@ handle_info({'EXIT',  _Pid, {ok, _} = _Reason}, State) ->
     {noreply, State};
 
 %% Json parsing barfed somewhere
-handle_info({'EXIT',  _Pid, {error, _} = Reason}, State) ->
-    lager:debug("Error Reason:~p~n", [Reason]),
+handle_info({'EXIT',  _Pid, {error, _} = _Reason}, State) ->
     {noreply, State};
 
 handle_info(_Info, State) ->
-    lager:debug("Info, ~p~n", [_Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
-    lager:debug("terminate, ~p~n", [_Reason]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
