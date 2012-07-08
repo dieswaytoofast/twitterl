@@ -17,10 +17,6 @@
 -export([get_process/1]).
 -export([register_process/2]).
 -export([safe_cast/2, safe_call/2, safe_call/3]).
-
-%%
-%% For testing
-%%
 -export([respond_to_target/2]).
 
 
@@ -102,16 +98,13 @@ safe_cast(Type, Request) ->
     end.
 
 -spec respond_to_target(Target::target(), Message::any()) -> ok.
-respond_to_target({function, Target}, Message) ->
-            Target(Message);
-respond_to_target({debug, _}, Message) ->
-            lager:debug("Message:~p~n", [Message]);
-respond_to_target({process, Target}, Message) ->
-            Target ! Message;
-respond_to_target({gen_server, Target}, Message) ->
-    gen_server:reply(Target, Message);
-respond_to_target({self, _}, Message) ->
-    Message.
+respond_to_target(Target, Message) ->
+    try
+        respond_internal(Target, Message)
+    catch
+        _:Error ->
+            lager:debug("Error:~p sending to Target:~p, Message:~p~n~n", [Error, Target, Message])
+    end.
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
@@ -142,3 +135,12 @@ get_child_pid(Type) ->
             lists:nth(Index, PidList)
     end.
 
+-spec respond_internal(target(), Message::any()) -> ok.
+respond_internal({debug, _}, Message) ->
+    lager:debug("Message:~p~n", [Message]);
+respond_internal({process, Target}, Message) ->
+    Target ! Message;
+respond_internal({gen_server, Target}, Message) ->
+    gen_server:reply(Target, Message);
+respond_internal({self, _}, Message) ->
+    Message.
