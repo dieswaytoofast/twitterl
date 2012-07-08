@@ -50,7 +50,6 @@ init([RequestType]) ->
 
 
 handle_call({request, Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun} = _Req, _From, State) ->
-    lager:debug("request, ~p~n", [_Req]),
     RetryCount = application:get_env(retry_count, ?TWITTERL_RETRY_COUNT),
     Pid = proc_lib:spawn_link(fun() -> return_data(Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) end),
     RequestDetails = #request_details{pid = Pid, 
@@ -70,7 +69,6 @@ handle_call({request, Target, RequestType, HttpRequestType, URL, Params, Consume
     {reply, {ok, {self(), Pid}}, NewState};
 
 handle_call(_Request, _From, State) ->
-    lager:debug("_Request, ~p~n", [_Request]),
     {reply, ok, State}.
 
 handle_cast({stop_request, Pid}, State) ->
@@ -87,7 +85,6 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info({'EXIT',  Pid, Reason}, State) ->
-    lager:debug("Exited on Reason, ~p~n", [Reason]),
     OldDict = State#processor_state.requests,
     NewDict = 
     case dict:find(Pid, OldDict) of
@@ -105,7 +102,6 @@ handle_info({'EXIT',  Pid, Reason}, State) ->
                 {error, _} ->
                     NewRetryCount = OldRequest#request_details.retry_count - 1,
                     if NewRetryCount =< 0 ->
-                            lager:debug("No more retries for Request:~p~n", [OldRequest]),
                             Dict1;
                         true -> 
                             Target = OldRequest#request_details.target,
@@ -130,11 +126,9 @@ handle_info({'EXIT',  Pid, Reason}, State) ->
     {noreply, State#processor_state{requests = NewDict}};
 
 handle_info(_Info, State) ->
-    lager:debug("Info, ~p~n", [_Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
-    lager:debug("terminate, ~p~n", [_Reason]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -148,21 +142,18 @@ return_data(Target, _RequestType = rest, HttpRequestType, URL, Params, Consumer,
         OauthFun = get_oauth_fun(HttpRequestType, URL, Params, Consumer, Token, Secret),
         case OauthFun() of
             {ok, {{_, 401, _} = _Status, _Headers, _Body} = _Response} ->
-                lager:debug("Response:~p~n", [_Response]),
                 twitterl_manager:respond_to_target(Target, {error, ?AUTH_ERROR});
             {ok, {{_, 403, _} = _Status, _Headers, Body} = _Response} ->
-                lager:debug("Response:~p~n", [_Response]),
                 twitterl_manager:respond_to_target(Target, {error, Body});
             {ok, {_Result, _Headers, BinBody}} ->
                 try 
                     SendFun(Target, BinBody)
                 catch
                     IClass:IReason ->
-                        lager:debug("catch send_data IClass:~p~n, IReason:~p~n", [IClass, IReason]),
+                        lager:debug("catch return_data IClass:~p~n, IReason:~p~n", [IClass, IReason]),
                         twitterl_manager:respond_to_target(Target, {error, IReason})
                 end;
             Response ->
-                lager:debug("Unknown Response:~p~n", [Response]),
                 twitterl_manager:respond_to_target(Target, {error, Response})
         end
     catch 
@@ -174,7 +165,6 @@ return_data(Target, _RequestType = rest, HttpRequestType, URL, Params, Consumer,
 return_data(Target, RequestType = stream, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) ->
     try
         OauthFun = get_oauth_fun(HttpRequestType, URL, Params, Consumer, Token, Secret, [{stream, self}, {sync, false}]),
-        lager:debug("H:~p, U:~p, P:~p, C:~p, T:~p, S:~p~n", [HttpRequestType, URL, Params, Consumer, Token, Secret]),
         case OauthFun() of
             {ok, RequestId} ->
                 case receive_data(Target, RequestId, SendFun) of
@@ -193,12 +183,10 @@ return_data(Target, RequestType = stream, HttpRequestType, URL, Params, Consumer
                         twitterl_manager:respond_to_target(Target, {error, Reason}),
                         {error, Reason};
 	                Reason  ->
-	                    lager:debug("Unknown Reason:~p~n", [Reason]),
                         twitterl_manager:respond_to_target(Target, {error, Reason}),
                         {error, Reason}
 	            end;
 	        Response ->
-	            lager:debug("Unknown Response:~p~n", [Response]),
                 {error, Response}
             end
     catch 

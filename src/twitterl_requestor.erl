@@ -133,14 +133,12 @@ handle_call({get_consumer}, _From, State) ->
     {reply, Consumer, State};
 
 handle_call(_Request, _From, State) ->
-    lager:debug("3, ~p~n", [_Request]),
     {reply, ok, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info(_Info, State) ->
-    lager:debug("Message:~p~n~n~n", [_Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -263,7 +261,6 @@ send_tweet_to_target(_Target, <<"\r\n">>) ->
 send_tweet_to_target(Target, BinBodyPart) ->
     try
         JsonBodyPart = ejson:decode(BinBodyPart),
-        lager:debug("returning data to:~p, JsonBodyPart:~p~n, BinBodyPart:~p~n", [Target, JsonBodyPart, BinBodyPart]),
         twitterl_tweet_parser:parse_tweets(JsonBodyPart, Target)
     catch
         Class:Reason -> 
