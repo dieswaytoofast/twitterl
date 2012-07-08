@@ -111,6 +111,8 @@ parse_tweets_internal({JsonBody}, Target) ->
     case twitterl_parser_util:parse({tweet, JsonBody}) of
         {ok, TweetRecord} ->
             twitterl_manager:respond_to_target(Target, TweetRecord);
+        {error, ?EMPTY_ERROR} ->
+            void;
         Error ->
             twitterl_manager:respond_to_target(Target, Error)
     end.
