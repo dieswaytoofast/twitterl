@@ -57,7 +57,7 @@ safe_call(Type, Request) ->
 -spec safe_call({Type :: atom(), Name :: atom()} | atom(), Request::any(), timeout()) -> {ok, pid()} | {ok, Result :: any(), pid()} | error().
 safe_call({Type, Name}, Request, Timeout) ->
     % Send the request to the process
-    case get_process({Type, Name}) of 
+    case get_process({Type, Name}) of
         Pid when is_pid(Pid) ->
             gen_server:call(Pid, Request, Timeout);
         _ ->
@@ -67,7 +67,7 @@ safe_call({Type, Name}, Request, Timeout) ->
 
 safe_call(Type, Request, Timeout) ->
     % Send the request to the process
-    case get_process(Type) of 
+    case get_process(Type) of
         Pid when is_pid(Pid) ->
             gen_server:call(Pid, Request, Timeout);
         _ ->
@@ -79,7 +79,7 @@ safe_call(Type, Request, Timeout) ->
 -spec safe_cast({Type :: atom(), Name :: atom()} | atom(), Request :: any()) -> ok | error().
 safe_cast({Type, Name}, Request) ->
     % Send the request to the process
-    case get_process({Type, Name}) of 
+    case get_process({Type, Name}) of
         Pid when is_pid(Pid) ->
             gen_server:cast(Pid, Request);
         _ ->
@@ -89,7 +89,7 @@ safe_cast({Type, Name}, Request) ->
 
 safe_cast(Type, Request) ->
     % Send the request to the process
-    case get_process(Type) of 
+    case get_process(Type) of
         Pid when is_pid(Pid) ->
             gen_server:cast(Pid, Request);
         _ ->
@@ -137,7 +137,8 @@ get_child_pid(Type) ->
 
 -spec respond_internal(target(), Message::any()) -> ok.
 respond_internal({debug, _}, Message) ->
-    lager:debug("Message:~p~n", [Message]);
+    %% lager:debug("Message:~p~n", [Message]),
+    Message;
 respond_internal({process, Target}, Message) ->
     Target ! Message;
 respond_internal({gen_server, Target}, Message) ->
