@@ -48,10 +48,12 @@ init([RequestType]) ->
     State =  #processor_state{},
     {ok, State}.
 
-
-handle_call({request, Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun} = _Req, _From, State) ->
+handle_call({request, Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun} = _Req, From, State) ->
     RetryCount = application:get_env(retry_count, ?TWITTERL_RETRY_COUNT),
-    Pid = proc_lib:spawn_link(fun() -> return_data(Target, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) end),
+    FinalTarget = get_final_target(Target, From),
+    Pid = proc_lib:spawn_link(fun() -> return_data(FinalTarget, RequestType, HttpRequestType, URL, Params, Consumer, Token, Secret, SendFun) end),
+    RequestId = {self(), Pid},
+
     RequestDetails = #request_details{pid = Pid, 
                                       target = Target, 
                                       request_type = RequestType,
@@ -66,7 +68,12 @@ handle_call({request, Target, RequestType, HttpRequestType, URL, Params, Consume
     OldDict = State#processor_state.requests,
     NewDict = dict:store(Pid, RequestDetails, OldDict),
     NewState = State#processor_state{requests = NewDict},
-    {reply, {ok, {self(), Pid}}, NewState};
+    case Target of
+        {self, _} ->
+            {noreply, NewState};
+        _ ->
+            {reply, {ok, RequestId}, NewState}
+    end;
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -247,3 +254,11 @@ get_oauth_fun(get, URL, Params, Consumer, Token, Secret, HttpArgs) ->
     fun() -> oauth:get(URL, Params, Consumer, Token, Secret, HttpArgs) end;
 get_oauth_fun(post, URL, Params, Consumer, Token, Secret, HttpArgs) ->
     fun() -> oauth:post(URL, Params, Consumer, Token, Secret, HttpArgs) end.
+
+%% Get the final target to where things go
+-spec get_final_target(target(), any()) -> target().
+get_final_target({self, _}, From) ->
+    {gen_server, From};
+get_final_target(Target, _) ->
+    Target.
+
