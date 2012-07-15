@@ -16,12 +16,13 @@
 -define(INVALID_BOOLEAN, invalid_boolean).
 -define(INVALID_STRING, invalid_string).
 -define(INVALID_BINARY, invalid_binary).
+-define(INVALID_INTEGER, invalid_integer).
 
 %% Twitter
 -define(TWITTERL_PROCESSOR_SUP, twitterl_processor_sup).
 -define(TWITTERL_PROCESSOR, twitterl_processor).
--define(TWITTERL_TWEET_PARSER_SUP, twitterl_tweet_parser_sup).
--define(TWITTERL_TWEET_PARSER, twitterl_tweet_parser).
+-define(TWITTERL_PARSER_SUP, twitterl_parser_sup).
+-define(TWITTERL_PARSER, twitterl_parser).
 -define(TWITTERL_REQUESTOR_SUP, twitterl_requestor_sup).
 -define(TWITTERL_REQUESTOR, twitterl_requestor).
 -define(TWITTERL_REST_PROCESSOR, twitterl_rest_processor).
@@ -30,7 +31,9 @@
 -define(TWITTERL_REQUEST_TYPE_STREAM, stream).
 -define(TWITTERL_HTTP_REQUEST_TYPE_GET, get).
 -define(TWITTERL_HTTP_REQUEST_TYPE_POST, post).
--define(TWITTERL_TWEET_PARSER_COUNT, 2).
+-define(TWITTERL_ITEM_TYPE_TWEET, tweet).
+-define(TWITTERL_ITEM_TYPE_USER, user).
+-define(TWITTERL_PARSER_COUNT, 2).
 -define(TWITTERL_REQUESTOR_COUNT, 2).
 -define(TWITTERL_RETRY_COUNT, 5).
 
@@ -64,6 +67,7 @@
 -define(TWITTER_STATUS_RETWEETS, {rest, post, "https://api.twitter.com/1/statuses/retweets"}).
 -define(TWITTER_STATUS_RETWEET, {rest, post, "https://api.twitter.com/1/statuses/retweet"}).
 -define(TWITTER_STATUS_OEMBED, {rest, post, "https://api.twitter.com/1/statuses/oembed"}).
+-define(TWITTER_USERS_SHOW, {rest, get, "https://api.twitter.com/1/users/show.json"}).
 
 %% Callback URL
 -define(TWITTERL_CALLBACK_URL, "http://www.posttestserver.com").
@@ -78,6 +82,7 @@
 -type http_request_type()                     :: get|post.
 -type process_name()                          :: request_type().
 -type target()                                :: {atom(), pid() | atom() | fun()}.
+-type user_id()                               :: integer().
 -type request_id()                            :: {pid(), pid()}.
 -type status_id()                             :: binary().
 -type token()                                 :: binary().
@@ -89,6 +94,7 @@
 -type string_method()                         :: string().
 -type params()                                :: list().
 -type consumer()                              :: {string(), string(), atom()}.
+-type item_type()                           :: tweet | user.
 
 %% Records
 
@@ -139,7 +145,15 @@
             screen_name   :: binary(),
             location      :: any(),
             description   :: any(),
-            profile_image_url   :: any()
+            profile_image_url   :: any(),
+            utc_offset    :: integer(),
+            time_zone     :: binary(),
+            followers_count :: integer(),
+            friends_count :: integer(),
+            statuses_count :: integer(),
+            lang          :: binary(),
+            geo_enabled   :: boolean(),
+            status        :: any()  %% Actually %tweet, but can'd do it
             }).
 
 -record(entity_url, {

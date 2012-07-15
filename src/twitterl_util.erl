@@ -16,10 +16,11 @@
 -export([keysearch/3, keysearch/4]).
 -export([required/2]).
 -export([validate_list_of_binaries/2]).
--export([get_boolean_value/1]).
 
+-export([get_boolean/1]).
 -export([get_string/1]).
 -export([get_binary/1]).
+-export([get_integer/1]).
 
 -export([format_url/1]).
 
@@ -125,13 +126,33 @@ validate_list_of_binaries([], _ReturnVal) ->
 
 
 %% @doc Gets the boolean value of the provided parameter
--spec get_boolean_value(Value::term()) -> boolean() | error().
-get_boolean_value(Value) when is_binary(Value) -> 
+-spec get_boolean(Value::term()) -> boolean() | error().
+get_boolean(Value) when is_binary(Value) -> 
     get_boolean_lower_value(bstr:lower(Value));
-get_boolean_value(Value) -> 
+get_boolean(Value) -> 
     {error, ?INVALID_BOOLEAN, [Value]}.
 
 get_boolean_lower_value(<<"true">>) -> true;
 get_boolean_lower_value(<<"false">>) -> false;
 get_boolean_lower_value(Value) -> 
     {error, ?INVALID_BOOLEAN, [Value]}.
+
+-spec get_integer(term()) -> integer() | error().
+get_integer(Value) ->
+    case bstr:is_numeric(bstr:bstr(Value)) of
+        true ->
+            get_integer_value(Value);
+        false ->
+            {error, {?INVALID_INTEGER, [Value]}}
+    end.
+
+-spec get_integer_value(term()) -> integer().
+get_integer_value(Value) when is_binary(Value) ->
+    get_integer_value(binary_to_list(Value));
+get_integer_value(Value) when is_atom(Value) ->
+    get_integer_value(atom_to_list(Value));
+get_integer_value(Value) when is_list(Value) ->
+    list_to_integer(Value);
+get_integer_value(Value) when is_integer(Value) ->
+    Value.
+

@@ -29,7 +29,7 @@
 %% API functions
 %% ===================================================================
 start_requestor() ->
-    supervisor:start_child(?MODULE, ?CHILD(make_ref(), worker, ?TWITTERL_TWEET_PARSER, [])).
+    supervisor:start_child(?MODULE, ?CHILD(make_ref(), worker, ?TWITTERL_REQUESTOR, [])).
 
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).

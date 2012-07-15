@@ -37,6 +37,7 @@
          statuses_retweet/5,
          statuses_oembed/4,
          statuses_show/4]).
+-export([users_show/4]).
 
 -export([setup/0]).
 
@@ -238,3 +239,12 @@ statuses_retweet(Target, StatusId, Params, Token, Secret) ->
 statuses_oembed(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_STATUS_OEMBED,
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+
+%%% User
+%% @doc Get a user
+-spec users_show(target(), params(), token(), secret()) -> #tweet{} | error().
+users_show(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_USERS_SHOW,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
+

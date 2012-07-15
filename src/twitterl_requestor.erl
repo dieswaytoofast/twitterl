@@ -24,7 +24,7 @@
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
--export([process_request/7, stop_request/1]).
+-export([process_request/7, process_request/8, stop_request/1]).
 
 % Authorization
 -export([get_consumer/0, get_request_token/1, get_access_token/3]).
@@ -51,11 +51,19 @@
 %%          sent to Target
 -spec process_request(target(), request_type(), http_request_type(), url(), params(), token(), secret()) -> {ok, request_reference()} | error().
 process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret) -> 
+    process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_TWEET).
+
+-spec process_request(target(), request_type(), http_request_type(), url(), params(), token(), secret(), item_type()) -> {ok, request_reference()} | error().
+process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ItemType) -> 
     Consumer = get_consumer(),
     SToken = twitterl_util:get_string(Token),
     SSecret = twitterl_util:get_string(Secret),
-    SendFun = fun(Dest, Data) -> send_tweet_to_target(Dest, Data) end,
+    SendFun = get_send_fun(ItemType),
     twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Target, RequestType, HttpRequestType, URL, Params, Consumer, SToken, SSecret, SendFun}).
+
+-spec get_send_fun(item_type()) -> function().
+get_send_fun(ItemType) ->
+    fun(Dest, Data) -> lager:debug("Data:~p~n", [Data]), send_to_target(ItemType, Dest, Data) end.
 
 %% @doc Stop a given request gracefully
 -spec stop_request(RequestId::request_id()) -> ok.
@@ -256,12 +264,13 @@ get_screen_name(Tokens) ->
 %% @doc Sends the data back to the calling process
 %%      <<"\r\n">> needs to be ignored
 
-send_tweet_to_target(_Target, <<"\r\n">>) ->
+send_to_target(_ItemType, _Target, <<"\r\n">>) ->
          ok;
-send_tweet_to_target(Target, BinBodyPart) ->
+send_to_target(ItemType, Target, BinBodyPart) ->
     try
         JsonBodyPart = ejson:decode(BinBodyPart),
-        twitterl_tweet_parser:parse_tweets(JsonBodyPart, Target)
+        lager:debug("~n~n~nJson:~p~n~n~n", [JsonBodyPart]),
+        twitterl_parser:parse(ItemType, JsonBodyPart, Target)
     catch
         Class:Reason -> 
             lager:debug("catch send_tweet_to_target Class:~p~n, Reason:~p~n", [Class, Reason])

@@ -12,7 +12,7 @@
 start(_StartType, _StartArgs) ->
     twitterl_requestor_sup:start_link(),
     twitterl_processor_sup:start_link(),
-    twitterl_tweet_parser_sup:start_link().
+    twitterl_parser_sup:start_link().
 
 stop(_State) ->
     ok.

@@ -2,10 +2,10 @@
 %%% @author Juan Jose Comellas <juanjo@comellas.org>
 %%% @author Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>
 %%% @copyright (C) 2012 Juan Jose Comellas, Mahesh Paolini-Subramanya
-%%% @doc Module serving twitterl_tweet_parser functions
+%%% @doc Module serving twitterl_parser functions
 %%% @end
 %%%-------------------------------------------------------------------
--module(twitterl_tweet_parser).
+-module(twitterl_parser).
 
 -author('Juan Jose Comellas <juanjo@comellas.org>').
 -author('Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>').
@@ -15,7 +15,7 @@
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
--export([parse_tweets/1, parse_tweets/2]).
+-export([parse/2, parse/3]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -28,16 +28,18 @@
 %% Includes & Defines
 %% ------------------------------------------------------------------
 -include("defaults.hrl").
--include("twitterl_tweet_parser.hrl").
+
+-record(parser_state, {
+            }).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
-parse_tweets(JsonBody) ->
-    twitterl_manager:safe_call(?TWITTERL_TWEET_PARSER, {parse_tweets, JsonBody}).
+parse(ItemType, JsonBody) ->
+    twitterl_manager:safe_call(?TWITTERL_PARSER, {parse, ItemType, JsonBody, {debug, undefined}}).
 
-parse_tweets(JsonBody, Target) ->
-    twitterl_manager:safe_cast(?TWITTERL_TWEET_PARSER, {parse_tweets, JsonBody, Target}).
+parse(ItemType, JsonBody, Target) ->
+    twitterl_manager:safe_cast(?TWITTERL_PARSER, {parse, ItemType, JsonBody, Target}).
 
 
 %% ------------------------------------------------------------------
@@ -50,19 +52,19 @@ start_link() ->
 
 init([]) ->
     process_flag(trap_exit, true),
-    twitterl_manager:register_process(?TWITTERL_TWEET_PARSER, make_ref()),
-    State = #tweet_parser_state{},
+    twitterl_manager:register_process(?TWITTERL_PARSER, make_ref()),
+    State = #parser_state{},
     {ok, State}.
 
-handle_call({parse_tweets, JsonBody}, _From, State) ->
-    Reply = parse_tweets_internal(JsonBody),
+handle_call({parse, ItemType, JsonBody, Target}, _From, State) ->
+    Reply = parse_internal(ItemType, JsonBody, Target),
     {reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-handle_cast({parse_tweets, JsonBody, Target} = _Req, State) ->
-    _Pid = proc_lib:spawn_link(fun() -> parse_tweets_internal(JsonBody, Target) end),
+handle_cast({parse, ItemType, JsonBody, Target} = _Req, State) ->
+    _Pid = proc_lib:spawn_link(fun() -> parse_internal(ItemType, JsonBody, Target) end),
     {noreply, State};
 
 handle_cast(_Msg, State) ->
@@ -87,35 +89,24 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
-parse_tweets_internal(JsonBody, Target) when is_list(JsonBody) ->
+parse_internal(ItemType, JsonBody, Target) when is_list(JsonBody) ->
     lists:map(fun
-            ({Tweet}) ->
-                case twitterl_parser_util:parse({tweet, Tweet}) of
-                    {ok, TweetRecord} ->
-                        twitterl_manager:respond_to_target(Target, TweetRecord);
+            ({Item}) ->
+                case twitterl_util:parse({ItemType, Item}) of
+                    {ok, Record} ->
+                        twitterl_manager:respond_to_target(Target, Record);
                     _ ->
                         void
                 end
         end,  JsonBody);
 
 %%  Deal with JsonBody of {[{<<"friends">>,[]}]}
-parse_tweets_internal({JsonBody}, Target) ->
-    case twitterl_parser_util:parse({tweet, JsonBody}) of
-        {ok, TweetRecord} ->
-            twitterl_manager:respond_to_target(Target, TweetRecord);
+parse_internal(ItemType, {JsonBody}, Target) ->
+    case twitterl_parser_util:parse({ItemType, JsonBody}) of
+        {ok, Record} ->
+            twitterl_manager:respond_to_target(Target, Record);
         {error, ?EMPTY_ERROR} ->
             void;
         Error ->
             twitterl_manager:respond_to_target(Target, Error)
     end.
-
-%%  Deal with JsonBody of {[{<<"friends">>,[]}]}
-parse_tweets_internal({JsonBody}) ->
-    case twitterl_parser_util:parse({tweet, JsonBody}) of
-        {ok, TweetRecord} ->
-            TweetRecord;
-        Error ->
-            Error
-    end.
-
-

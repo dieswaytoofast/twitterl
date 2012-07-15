@@ -2,7 +2,7 @@
 %%% @author Juan Jose Comellas <juanjo@comellas.org>
 %%% @author Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>
 %%% @copyright (C) 2012 Juan Jose Comellas, Mahesh Paolini-Subramanya
-%%% @doc Module serving twitterl_tweet_parser functions
+%%% @doc Module serving twitterl_parser functions
 %%% @end
 %%%-------------------------------------------------------------------
 -module(twitterl_parser_util).
@@ -24,10 +24,20 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-parse({tweet, Values}) ->
+parse({?TWITTERL_ITEM_TYPE_TWEET, Values}) ->
 	% Create a TweetRecord for this Tweet based on the values
 	Tweet = format_tweet(Values),
     case is_tweet_empty(Tweet) of
+        true ->
+            {error, ?EMPTY_ERROR};
+        _ ->
+            {ok, Tweet}
+    end;
+
+parse({?TWITTERL_ITEM_TYPE_USER, Values}) ->
+	% Create a TweetRecord for this Tweet based on the values
+	Tweet = format_user(Values),
+    case is_user_empty(Tweet) of
         true ->
             {error, ?EMPTY_ERROR};
         _ ->
@@ -39,6 +49,13 @@ parse({tweet, Values}) ->
 %% ------------------------------------------------------------------
 is_tweet_empty(Tweet) ->
     if Tweet =:= #tweet{} ->
+            true;
+        true ->
+            false
+    end.
+
+is_user_empty(User) ->
+    if User =:= #twitter_user{} ->
             true;
         true ->
             false
@@ -67,8 +84,13 @@ parse_tweet_field({_Field = <<"place">>, {Value}}) ->
     PlaceRecord = format_place(Value),
     {place, PlaceRecord};
 
+parse_tweet_field({_Field = <<"geo">>, {Value}}) ->
+    GeoRecord = format_bounding_box(Value),
+    {geo, GeoRecord};
+
+
 parse_tweet_field({_Field = <<"id">>, Value}) -> 
-    {id, Value};
+    {id, twitterl_util:get_integer(Value)};
 
 parse_tweet_field({_Field = <<"id_str">>, Value}) ->
     {id_str, Value};
@@ -91,7 +113,7 @@ format_user(Values) ->
     record_util:update_record(#twitter_user{}, PathList).
 
 parse_user_field({_Field = <<"id">>, Value}) -> 
-    {id, Value};
+    {id, twitterl_util:get_integer(Value)};
 
 parse_user_field({_Field = <<"id_str">>, Value}) ->
     {id_str, Value};
@@ -111,6 +133,31 @@ parse_user_field({_Field = <<"description">>, Value}) ->
 
 parse_user_field({<<"profile_image_url">>, Value}) ->
     {profile_image_url, Value};
+
+parse_user_field({<<"utc_offset">>, Value}) ->
+    {utc_offset, twitterl_util:get_integer(Value)};
+
+parse_user_field({<<"time_zone">>, Value}) ->
+    {time_zone, Value};
+
+parse_user_field({<<"follwers_count">>, Value}) ->
+    {follwers_count, twitterl_util:get_integer(Value)};
+
+parse_user_field({<<"friends_count">>, Value}) ->
+    {friends_count, twitterl_util:get_integer(Value)};
+
+parse_user_field({<<"statuses_count">>, Value}) ->
+    {statuses_count, Value};
+
+parse_user_field({<<"lang">>, Value}) ->
+    {lang, Value};
+
+parse_user_field({<<"geo_enabled">>, Value}) ->
+    {geo_enabled, Value};
+
+parse_user_field({<<"status">>, {Values}}) ->
+    Status = format_tweet(Values),
+    {status, Status};
 
 parse_user_field({_Field, _Value}) -> [].
 
