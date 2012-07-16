@@ -92,7 +92,7 @@ code_change(_OldVsn, State, _Extra) ->
 parse_internal(ItemType, JsonBody, Target) when is_list(JsonBody) ->
     lists:map(fun
             ({Item}) ->
-                case twitterl_util:parse({ItemType, Item}) of
+                case twitterl_parser_util:parse({ItemType, Item}) of
                     {ok, Record} ->
                         twitterl_manager:respond_to_target(Target, Record);
                     _ ->

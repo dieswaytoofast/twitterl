@@ -22,7 +22,7 @@
 -export([get_binary/1]).
 -export([get_integer/1]).
 
--export([format_url/1]).
+-export([build_string/1]).
 
 %%
 %% General Utilities
@@ -67,7 +67,7 @@ get_binary(_) -> {error, ?INVALID_BINARY}.
 %%
 %% Parameters
 %% 
-format_url(Params) when is_list(Params) ->
+build_string(Params) when is_list(Params) ->
     Result = 
     lists:foldr(fun(X, Acc) ->
                     SX = get_string(X),

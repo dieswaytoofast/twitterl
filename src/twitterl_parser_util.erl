@@ -220,12 +220,12 @@ parse_entities({_Field = <<"hashtags">>, Value}) ->
     {hashtags, Tags};
 
 parse_entities({_Field = <<"urls">>, Value}) ->
-    UrlsList = [format_urls(Item) || Item <- Value], 
+    UrlsList = [build_strings(Item) || Item <- Value], 
     {urls, UrlsList};
 
 parse_entities({_Field, _Value}) -> [].
 
-format_urls({Values}) ->
+build_strings({Values}) ->
     PathList =
     lists:flatten([parse_urls(Tuple) || Tuple <- Values]),
     record_util:update_record(#entity_url{}, PathList).
