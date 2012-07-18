@@ -63,7 +63,7 @@ process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret
 
 -spec get_send_fun(item_type()) -> function().
 get_send_fun(ItemType) ->
-    fun(Dest, Data) -> lager:debug("Data:~p~n", [Data]), send_to_target(ItemType, Dest, Data) end.
+    fun(Dest, Data) -> send_to_target(ItemType, Dest, Data) end.
 
 %% @doc Stop a given request gracefully
 -spec stop_request(RequestId::request_id()) -> ok.
