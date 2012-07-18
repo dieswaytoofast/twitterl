@@ -37,7 +37,10 @@
          statuses_retweet/5,
          statuses_oembed/4,
          statuses_show/4]).
--export([users_show/4]).
+-export([users_show/4,
+         users_lookup/4]).
+-export([account_verify_credentials/4,
+         account_settings/4]).
 
 -export([twitter_time_to_epoch/1, twitter_time_to_datetime/1]).
 
@@ -250,6 +253,23 @@ users_show(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_USERS_SHOW,
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
 
+-spec users_lookup(target(), params(), token(), secret()) -> #tweet{} | error().
+users_lookup(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_USERS_LOOKUP,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
+
+
+%%% Account
+-spec account_verify_credentials(target(), params(), token(), secret()) -> #tweet{} | error().
+account_verify_credentials(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_ACCOUNT_VERIFY_CREDENTIALS,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
+
+%%% Account
+-spec account_settings(target(), params(), token(), secret()) -> #tweet{} | error().
+account_settings(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_ACCOUNT_SETTINGS,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
 
 
 %%% Misc Utilities

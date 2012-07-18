@@ -68,6 +68,9 @@
 -define(TWITTER_STATUS_RETWEET, {rest, post, "https://api.twitter.com/1/statuses/retweet"}).
 -define(TWITTER_STATUS_OEMBED, {rest, post, "https://api.twitter.com/1/statuses/oembed"}).
 -define(TWITTER_USERS_SHOW, {rest, get, "https://api.twitter.com/1/users/show.json"}).
+-define(TWITTER_USERS_LOOKUP, {rest, post, "https://api.twitter.com/1/users/lookup.json"}).
+-define(TWITTER_ACCOUNT_VERIFY_CREDENTIALS, {rest, get, "https://api.twitter.com/1/account/verify_credentials.json"}).
+-define(TWITTER_ACCOUNT_SETTINGS, {rest, get, "https://api.twitter.com/1/account/settings.json"}).
 
 %% Callback URL
 -define(TWITTERL_CALLBACK_URL, "http://www.posttestserver.com").
