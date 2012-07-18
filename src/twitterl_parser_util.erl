@@ -88,12 +88,29 @@ parse_tweet_field({_Field = <<"geo">>, {Value}}) ->
     GeoRecord = format_bounding_box(Value),
     {geo, GeoRecord};
 
-
 parse_tweet_field({_Field = <<"id">>, Value}) -> 
-    {id, twitterl_util:get_integer(Value)};
+    {id, Value};
 
 parse_tweet_field({_Field = <<"id_str">>, Value}) ->
     {id_str, Value};
+
+
+parse_tweet_field({_Field = <<"in_reply_to_user_id">>, Value}) -> 
+    {in_reply_to_user_id, Value};
+
+parse_tweet_field({_Field = <<"in_reply_to_user_id_str">>, Value}) ->
+    {in_reply_to_user_id_str, Value};
+
+
+parse_tweet_field({_Field = <<"in_reply_to_status_id">>, Value}) -> 
+    {in_reply_to_status_id, Value};
+
+parse_tweet_field({_Field = <<"in_reply_to_status_id_str">>, Value}) ->
+    {in_reply_to_status_id_str, Value};
+
+
+parse_tweet_field({_Field = <<"in_reply_to_screen_name">>, Value}) -> 
+    {in_reply_to_screen_name, Value};
 
 parse_tweet_field({_Field = <<"text">>, Value}) ->
     {text, Value};
@@ -103,7 +120,7 @@ parse_tweet_field({_Field = <<"coordinates">>, Value}) ->
 
 
 parse_tweet_field({_Field = <<"created_at">>, Value}) ->
-    {created_at, Value};
+    {created_at, util:twitter_time_to_epoch(Value)};
 
 parse_tweet_field({_Field, _Value}) -> [].
 
@@ -113,7 +130,7 @@ format_user(Values) ->
     record_util:update_record(#twitter_user{}, PathList).
 
 parse_user_field({_Field = <<"id">>, Value}) -> 
-    {id, twitterl_util:get_integer(Value)};
+    {id, Value};
 
 parse_user_field({_Field = <<"id_str">>, Value}) ->
     {id_str, Value};
@@ -125,6 +142,10 @@ parse_user_field({_Field = <<"name">>, Value}) ->
 parse_user_field({_Field = <<"screen_name">>, Value}) ->
     {screen_name, Value};
 
+parse_user_field({_Field = <<"created_at">>, Value}) ->
+    {created_at, util:twitter_time_to_epoch(Value)};
+
+
 parse_user_field({_Field = <<"location">>, Value}) ->
     {location, Value};
 
@@ -135,16 +156,16 @@ parse_user_field({<<"profile_image_url">>, Value}) ->
     {profile_image_url, Value};
 
 parse_user_field({<<"utc_offset">>, Value}) ->
-    {utc_offset, twitterl_util:get_integer(Value)};
+    {utc_offset, Value};
 
 parse_user_field({<<"time_zone">>, Value}) ->
     {time_zone, Value};
 
 parse_user_field({<<"follwers_count">>, Value}) ->
-    {follwers_count, twitterl_util:get_integer(Value)};
+    {followers_count, Value};
 
 parse_user_field({<<"friends_count">>, Value}) ->
-    {friends_count, twitterl_util:get_integer(Value)};
+    {friends_count, Value};
 
 parse_user_field({<<"statuses_count">>, Value}) ->
     {statuses_count, Value};
@@ -205,6 +226,9 @@ parse_bounding_box_field({_Field = <<"type">>, Value}) ->
 parse_bounding_box_field({_Field = <<"coordinates">>, [Value]}) ->
     {coordinates, Value};
 
+parse_bounding_box_field({_Field = <<"coordinates">>, Value}) ->
+    {coordinates, Value};
+
 parse_bounding_box_field({_Field, _Value}) -> [].
 
 format_entities(Values) ->
@@ -214,7 +238,10 @@ format_entities(Values) ->
 
 parse_entities({_Field = <<"hashtags">>, Value}) ->
     Tags = lists:foldl(fun({X}, Acc) ->
-                    Tag = twitterl_util:keysearch(<<"text">>, 1, <<>>, X),
+                    Tag = case lists:keyfind(<<"text">>, 1, X) of
+                        {_, Value} -> Value;
+                        false -> <<>>
+                    end,
                     [Tag|Acc]
             end, [], Value),
     {hashtags, Tags};

@@ -56,14 +56,14 @@ process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret
 -spec process_request(target(), request_type(), http_request_type(), url(), params(), token(), secret(), item_type()) -> {ok, request_reference()} | error().
 process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ItemType) -> 
     Consumer = get_consumer(),
-    SToken = twitterl_util:get_string(Token),
-    SSecret = twitterl_util:get_string(Secret),
+    SToken = util:get_string(Token),
+    SSecret = util:get_string(Secret),
     SendFun = get_send_fun(ItemType),
     twitterl_manager:safe_call({?TWITTERL_PROCESSOR, RequestType}, {request, Target, RequestType, HttpRequestType, URL, Params, Consumer, SToken, SSecret, SendFun}).
 
 -spec get_send_fun(item_type()) -> function().
 get_send_fun(ItemType) ->
-    fun(Dest, Data) -> send_to_target(ItemType, Dest, Data) end.
+    fun(Dest, Data) -> lager:debug("Data:~p~n", [Data]), send_to_target(ItemType, Dest, Data) end.
 
 %% @doc Stop a given request gracefully
 -spec stop_request(RequestId::request_id()) -> ok.
@@ -103,7 +103,7 @@ handle_call({get_request_token, TargetURL}, From, State) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_REQUEST_TOKEN,
     Target  = {gen_server, From},
 
-    STargetURL = twitterl_util:get_string(TargetURL),
+    STargetURL = util:get_string(TargetURL),
     Params = [{"oauth_callback", STargetURL}],
 
     OAuthData = State#requestor_state.oauth_data,
@@ -121,14 +121,14 @@ handle_call({get_access_token, Verifier, Token, Secret}, From, State) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_ACCESS_TOKEN,
     Target  = {gen_server, From},
 
-    SVerifier = twitterl_util:get_string(Verifier),
+    SVerifier = util:get_string(Verifier),
     Params = [{"oauth_verifier", SVerifier}],
 
     OAuthData = State#requestor_state.oauth_data,
     Consumer = get_consumer(OAuthData),
 
-    SToken = twitterl_util:get_string(Token),
-    SSecret = twitterl_util:get_string(Secret),
+    SToken = util:get_string(Token),
+    SSecret = util:get_string(Secret),
 
     % Send reply to the invoker
     SendFun = fun(Dest, Data) -> send_access_to_target(Dest, Data) end,
@@ -230,34 +230,30 @@ extract_tokens(Tokens) ->
 
 -spec get_token(list()) -> binary().
 get_token(Tokens) ->
-    case twitterl_util:keysearch("oauth_token", 1, undefined, Tokens) of
-        undefined ->
-            throw(?AUTH_ERROR);
-        Token -> twitterl_util:get_binary(Token)
+    case lists:keyfind("oauth_token", 1, Tokens) of
+        {_, Token} -> util:get_binary(Token);
+        false -> throw(?AUTH_ERROR)
     end.
 
 -spec get_secret(list()) -> binary().
 get_secret(Tokens) ->
-    case twitterl_util:keysearch("oauth_token_secret", 1, undefined, Tokens) of
-        undefined ->
-            throw(?AUTH_ERROR);
-        Token -> twitterl_util:get_binary(Token)
+    case lists:keyfind("oauth_token_secret", 1, Tokens) of
+        {_, Token} -> util:get_binary(Token);
+        false -> throw(?AUTH_ERROR)
     end.
 
 -spec get_user_id(list()) -> binary().
 get_user_id(Tokens) ->
-    case twitterl_util:keysearch("user_id", 1, undefined, Tokens) of
-        undefined ->
-            throw(?AUTH_ERROR);
-        Token -> twitterl_util:get_binary(Token)
+    case lists:keyfind("user_id", 1, Tokens) of
+        {_, Token} -> util:get_binary(Token);
+        false -> throw(?AUTH_ERROR)
     end.
 
 -spec get_screen_name(list()) -> binary().
 get_screen_name(Tokens) ->
-    case twitterl_util:keysearch("screen_name", 1, undefined, Tokens) of
-        undefined ->
-            throw(?AUTH_ERROR);
-        Token -> twitterl_util:get_binary(Token)
+    case lists:keyfind("screen_name", 1, Tokens) of
+        {_, Token} -> util:get_binary(Token);
+        false -> throw(?AUTH_ERROR)
     end.
 
 

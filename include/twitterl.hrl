@@ -11,6 +11,14 @@
 %%% retrieved from: http://www.opensource.org/licenses/bsd-license.php
 %%%-------------------------------------------------------------------
 
+%% TYPES
+%% Tuple containing a date and time.
+-type datetime()                                :: {calendar:date(), {calendar:hour(), calendar:minute(), calendar:second() | float()}}.
+%% A floating point number representing the number of seconds elapsed since
+%% Jan 1, 1970, 00:00:00 (Unix epoch).
+-type epoch()                                   :: non_neg_integer() | float().
+
+
 -record(twitter_oauth_data, {
             consumer_key        :: string(),
             consumer_secret     :: string(),
@@ -57,6 +65,7 @@
             screen_name   :: binary(),
             location      :: any(),
             description   :: any(),
+            created_at    :: epoch(),
             profile_image_url   :: any(),
             utc_offset    :: integer(),
             time_zone     :: binary(),
@@ -82,11 +91,16 @@
 -record(tweet, {
             id_str        :: binary(),
             id            :: integer(),
+            in_reply_to_status_id_str      :: binary(),
+            in_reply_to_status_id          :: integer(),
+            in_reply_to_user_id_str        :: binary(),
+            in_reply_to_user_id            :: integer(),
+            in_reply_to_screen_name        :: binary(),
             text          :: binary(),
             coordinates   :: any(),
             place         :: any(),
             geo           :: #bounding_box{},
-            created_at    :: any(),
+            created_at    :: epoch(),
             user          :: #twitter_user{},
             entities      :: #entities{}
             }).

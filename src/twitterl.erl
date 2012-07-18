@@ -203,35 +203,35 @@ statuses_show(Target, Params, Token, Secret) ->
 -spec statuses_destroy(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
 statuses_destroy(Target, StatusId, Params, Token, Secret) ->
     {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_DESTROY,
-    URL = twitterl_util:build_string([BaseURL, "/", StatusId, ".json"]),
+    URL = util:build_string([BaseURL, "/", StatusId, ".json"]),
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
 %% @doc Users that retweeted status
 -spec statuses_retweeted_by(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
 statuses_retweeted_by(Target, StatusId, Params, Token, Secret) ->
     {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEETED_BY,
-    URL = twitterl_util:build_string([BaseURL, "/", StatusId, "/retweeted_by.json"]),
+    URL = util:build_string([BaseURL, "/", StatusId, "/retweeted_by.json"]),
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
 %% @doc User ids that retweeted status
 -spec statuses_retweeted_by_ids(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
 statuses_retweeted_by_ids(Target, StatusId, Params, Token, Secret) ->
     {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEETED_BY,
-    URL = twitterl_util:build_string([BaseURL, "/", StatusId, "/retweeted_by/ids.json"]),
+    URL = util:build_string([BaseURL, "/", StatusId, "/retweeted_by/ids.json"]),
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
 %% @doc Retweets of a given tweet
 -spec statuses_retweets(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
 statuses_retweets(Target, StatusId, Params, Token, Secret) ->
     {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEETS,
-    URL = twitterl_util:build_string([BaseURL, "/", StatusId, ".json"]),
+    URL = util:build_string([BaseURL, "/", StatusId, ".json"]),
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
 %% @doc Retweet a given tweet
 -spec statuses_retweet(target(), status_id(), params(), token(), secret()) -> #tweet{} | error().
 statuses_retweet(Target, StatusId, Params, Token, Secret) ->
     {RequestType, HttpRequestType, BaseURL} = ?TWITTER_STATUS_RETWEET,
-    URL = twitterl_util:build_string([BaseURL, "/", StatusId, ".json"]),
+    URL = util:build_string([BaseURL, "/", StatusId, ".json"]),
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
 %% @doc Oembed a given tweet
