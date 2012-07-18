@@ -39,6 +39,8 @@
          statuses_show/4]).
 -export([users_show/4]).
 
+-export([twitter_time_to_epoch/1, twitter_time_to_datetime/1]).
+
 -export([setup/0]).
 
 -define(APP, ?MODULE).
@@ -248,3 +250,19 @@ users_show(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_USERS_SHOW,
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
 
+
+
+%%% Misc Utilities
+
+%% @doc Convert a date and time as binary string in the ISO 8601 format to the
+%%      number of seconds since the Unix epoch (Jan 1, 1970, 00:00:00) with
+%%      millisecond precision.
+-spec twitter_time_to_epoch(binary()) -> epoch().
+twitter_time_to_epoch(TwitterDatetime) ->
+    twitterl_parser_util:twitter_time_to_epoch(TwitterDatetime).
+
+%% @doc Convert a datetime in the format used by Twitter to a date and time in the
+%%      format returned by calendar:universal_time/0.
+-spec twitter_time_to_datetime(binary()) -> datetime().
+twitter_time_to_datetime(TwitterDatetime) ->
+    twitterl_parser_util:twitter_time_to_datetime(TwitterDatetime).

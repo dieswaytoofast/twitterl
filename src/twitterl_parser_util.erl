@@ -19,6 +19,7 @@
 %% ------------------------------------------------------------------
 
 -export([parse/1]).
+-export([twitter_time_to_epoch/1, twitter_time_to_datetime/1]).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -120,7 +121,7 @@ parse_tweet_field({_Field = <<"coordinates">>, Value}) ->
 
 
 parse_tweet_field({_Field = <<"created_at">>, Value}) ->
-    {created_at, util:twitter_time_to_epoch(Value)};
+    {created_at, twitter_time_to_epoch(Value)};
 
 parse_tweet_field({_Field, _Value}) -> [].
 
@@ -143,7 +144,7 @@ parse_user_field({_Field = <<"screen_name">>, Value}) ->
     {screen_name, Value};
 
 parse_user_field({_Field = <<"created_at">>, Value}) ->
-    {created_at, util:twitter_time_to_epoch(Value)};
+    {created_at, twitter_time_to_epoch(Value)};
 
 
 parse_user_field({_Field = <<"location">>, Value}) ->
@@ -261,3 +262,58 @@ parse_urls({_Field = <<"expanded_url">>, Value}) ->
     {expanded_url, Value};
 
 parse_urls({_Field, _Value}) -> [].
+
+%% ====================================================================
+%% Time manipulation
+%% ====================================================================
+%% @doc Convert a date and time as binary string in the ISO 8601 format to the
+%%      number of seconds since the Unix epoch (Jan 1, 1970, 00:00:00) with
+%%      millisecond precision.
+-spec twitter_time_to_epoch(binary()) -> epoch().
+twitter_time_to_epoch(TwitterDatetime) when is_binary(TwitterDatetime) ->
+    util:datetime_to_epoch(twitter_time_to_datetime(TwitterDatetime));
+twitter_time_to_epoch(_TwitterDatetime) ->
+    null.
+
+%% @doc Convert a datetime in the format used by Twitter to a date and time in the
+%%      format returned by calendar:universal_time/0.
+-spec twitter_time_to_datetime(binary()) -> datetime().
+twitter_time_to_datetime(<<_DDD:3/binary, " ", MMM:3/binary, " ", DD:2/binary, " ",
+                      Hh:2/binary, $:, Mm:2/binary, $:, Ss:2/binary, " ",
+                      Sign, TzHour:2/binary, TzMin:2/binary, " ", YYYY:4/binary, _Tail/binary>>) ->
+    Month = month(MMM),
+    Date1 = {bstr:to_integer(YYYY), Month, bstr:to_integer(DD)},
+    Hour1 = bstr:to_integer(Hh),
+    Min1 = bstr:to_integer(Mm),
+    Sec1 = bstr:to_integer(Ss),
+
+    if
+        TzHour =:= <<"00">> andalso TzMin =:= <<"00">> ->
+            {Date1, {Hour1, Min1, Sec1}};
+        true ->
+            LocalSec = calendar:datetime_to_gregorian_seconds({Date1, {Hour1, Min1, Sec1}}),
+            %% Convert the the seconds in the local timezone to UTC.
+            UtcSec = case ((bstr:to_integer(TzHour) * 3600 + bstr:to_integer(TzMin)) * 60) of
+                         Offset when Sign =:= $- -> LocalSec - Offset;
+                         Offset                  -> LocalSec + Offset
+                     end,
+            calendar:gregorian_seconds_to_datetime(UtcSec)
+    end;
+twitter_time_to_datetime(_TwitterDatetime) ->
+    null.
+
+
+-spec month(binary()) -> integer().
+month(<<"Jan">>) ->  1;
+month(<<"Feb">>) ->  2;
+month(<<"Mar">>) ->  3;
+month(<<"Apr">>) ->  4;
+month(<<"Jun">>) ->  6;
+month(<<"Jul">>) ->  7;
+month(<<"Aug">>) ->  8;
+month(<<"Sep">>) ->  9;
+month(<<"Oct">>) -> 10;
+month(<<"Nov">>) -> 11;
+month(<<"Dec">>) -> 12.
+
+
