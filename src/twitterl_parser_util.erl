@@ -240,7 +240,7 @@ format_entities(Values) ->
 parse_entities({_Field = <<"hashtags">>, Value}) ->
     Tags = lists:foldl(fun({X}, Acc) ->
                     Tag = case lists:keyfind(<<"text">>, 1, X) of
-                        {_, Value} -> Value;
+                        {_, Val} -> Val;
                         false -> <<>>
                     end,
                     [Tag|Acc]
