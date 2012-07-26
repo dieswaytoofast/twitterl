@@ -141,6 +141,8 @@ respond_internal({debug, _}, Message) ->
     Message;
 respond_internal({process, Target}, Message) ->
     Target ! Message;
+respond_internal({function, Fun}, Message) ->
+    Fun(Message);
 respond_internal({gen_server, Target}, Message) ->
     gen_server:reply(Target, Message);
 respond_internal({self, _}, Message) ->
