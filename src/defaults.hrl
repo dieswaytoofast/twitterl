@@ -50,7 +50,6 @@
 -define(TWITTER_FAVORITES, {rest, get, "https://api.twitter.com/1/favorites.json"}).
 -define(TWITTER_HOME_TIMELINE, {rest, get, "https://api.twitter.com/1/statuses/home_timeline.json"}).
 -define(TWITTER_USER_TIMELINE, {rest, get, "https://api.twitter.com/1/statuses/user_timeline.json"}).
--define(TWITTER_USER_TIMELINE_STREAM, {stream, post, "https://userstream.twitter.com/2/user.json"}).
 -define(TWITTER_MENTIONS, {rest, get, "https://api.twitter.com/1/statuses/mentions.json"}).
 -define(TWITTER_RETWEETED_BY_ME, {rest, get, "https://api.twitter.com/1/statuses/retweeted_by_me.json"}).
 -define(TWITTER_RETWEETED_TO_ME, {rest, get, "https://api.twitter.com/1/statuses/retweeted_to_me.json"}).
@@ -67,10 +66,17 @@
 -define(TWITTER_STATUS_RETWEETS, {rest, post, "https://api.twitter.com/1/statuses/retweets"}).
 -define(TWITTER_STATUS_RETWEET, {rest, post, "https://api.twitter.com/1/statuses/retweet"}).
 -define(TWITTER_STATUS_OEMBED, {rest, post, "https://api.twitter.com/1/statuses/oembed"}).
+% Users
 -define(TWITTER_USERS_SHOW, {rest, get, "https://api.twitter.com/1/users/show.json"}).
 -define(TWITTER_USERS_LOOKUP, {rest, post, "https://api.twitter.com/1/users/lookup.json"}).
+% Account
 -define(TWITTER_ACCOUNT_VERIFY_CREDENTIALS, {rest, get, "https://api.twitter.com/1/account/verify_credentials.json"}).
 -define(TWITTER_ACCOUNT_SETTINGS, {rest, get, "https://api.twitter.com/1/account/settings.json"}).
+% Streaming
+-define(TWITTER_USER_TIMELINE_STREAM, {stream, post, "https://userstream.twitter.com/2/user.json"}).
+-define(TWITTER_FILTER_STREAM, {stream, post, "https://stream.twitter.com/1/statuses/filter.json"}).
+-define(TWITTER_STATUSES_SAMPLE_STREAM, {stream, post, "https://stream.twitter.com/1/statuses/sample.json"}).
+-define(TWITTER_STATUSES_FIREHOSE_STREAM, {stream, post, "https://stream.twitter.com/1/statuses/firehose.json"}).
 
 %% Callback URL
 -define(TWITTERL_CALLBACK_URL, "http://www.posttestserver.com").

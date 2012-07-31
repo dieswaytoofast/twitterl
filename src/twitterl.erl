@@ -21,7 +21,6 @@
 -export([get_request_token/0, get_request_token/1, get_access_token/3]).
 -export([statuses_home_timeline/4, 
          statuses_user_timeline/4,
-         statuses_user_timeline_stream/4,
          statuses_retweeted_by_me/4,
          statuses_retweeted_to_me/4,
          statuses_retweets_of_me/4,
@@ -37,10 +36,17 @@
          statuses_retweet/5,
          statuses_oembed/4,
          statuses_show/4]).
+
 -export([users_show/4,
          users_lookup/4]).
+
 -export([account_verify_credentials/4,
          account_settings/4]).
+
+-export([statuses_user_timeline_stream/4,
+         statuses_filter_stream/4,
+         statuses_sample_stream/4,
+         statuses_firehose_stream/4]).
 
 -export([twitter_time_to_epoch/1, twitter_time_to_datetime/1]).
 
@@ -146,11 +152,6 @@ statuses_home_timeline(Target, Params, Token, Secret) ->
 -spec statuses_user_timeline(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
 statuses_user_timeline(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_USER_TIMELINE,
-    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
-
--spec statuses_user_timeline_stream(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
-statuses_user_timeline_stream(Target, Params, Token, Secret) ->
-    {RequestType, HttpRequestType, URL} = ?TWITTER_USER_TIMELINE_STREAM,
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
 -spec statuses_mentions(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
@@ -260,17 +261,39 @@ users_lookup(Target, Params, Token, Secret) ->
 
 
 %%% Account
+%% @doc Get the user associated with the credentials
 -spec account_verify_credentials(target(), params(), token(), secret()) -> #tweet{} | error().
 account_verify_credentials(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_ACCOUNT_VERIFY_CREDENTIALS,
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
 
-%%% Account
+%% @doc Get the account settings
 -spec account_settings(target(), params(), token(), secret()) -> #tweet{} | error().
 account_settings(Target, Params, Token, Secret) ->
     {RequestType, HttpRequestType, URL} = ?TWITTER_ACCOUNT_SETTINGS,
     twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret, ?TWITTERL_ITEM_TYPE_USER).
 
+
+%%% Streaming APIs
+-spec statuses_user_timeline_stream(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
+statuses_user_timeline_stream(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_USER_TIMELINE_STREAM,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+-spec statuses_filter_stream(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
+statuses_filter_stream(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_FILTER_STREAM,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+-spec statuses_sample_stream(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
+statuses_sample_stream(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUSES_SAMPLE_STREAM,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
+
+-spec statuses_firehose_stream(target(), params(), token(), secret()) -> {ok, request_reference()} | error().
+statuses_firehose_stream(Target, Params, Token, Secret) ->
+    {RequestType, HttpRequestType, URL} = ?TWITTER_STATUSES_FIREHOSE_STREAM,
+    twitterl_requestor:process_request(Target, RequestType, HttpRequestType, URL, Params, Token, Secret).
 
 %%% Misc Utilities
 

@@ -137,7 +137,7 @@ get_child_pid(Type) ->
 
 -spec respond_internal(target(), Message::any()) -> ok.
 respond_internal({debug, _}, Message) ->
-    %% lager:debug("Message:~p~n", [Message]),
+    lager:debug("Message:~p~n", [Message]),
     Message;
 respond_internal({process, Target}, Message) ->
     Target ! Message;
