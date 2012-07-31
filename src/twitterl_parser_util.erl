@@ -308,6 +308,7 @@ month(<<"Jan">>) ->  1;
 month(<<"Feb">>) ->  2;
 month(<<"Mar">>) ->  3;
 month(<<"Apr">>) ->  4;
+month(<<"May">>) ->  5;
 month(<<"Jun">>) ->  6;
 month(<<"Jul">>) ->  7;
 month(<<"Aug">>) ->  8;
