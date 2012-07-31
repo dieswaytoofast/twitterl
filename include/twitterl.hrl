@@ -84,8 +84,8 @@
             }).
 
 -record(entities, {
-            hashtags      :: list(),
-            urls          :: list()
+            hashtags = [] :: list(),
+            urls = []     :: list()
             }).
             
 -record(tweet, {
