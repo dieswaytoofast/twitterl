@@ -152,6 +152,8 @@ return_data(Target, _RequestType = rest, HttpRequestType, URL, Params, Consumer,
                 twitterl_manager:respond_to_target(Target, {error, ?AUTH_ERROR});
             {ok, {{_, 403, _} = _Status, _Headers, Body} = _Response} ->
                 twitterl_manager:respond_to_target(Target, {error, Body});
+            {ok, {{_, 404, _} = _Status, _Headers, Body} = _Response} ->
+                twitterl_manager:respond_to_target(Target, {error, Body});
             {ok, {_Result, _Headers, BinBody}} ->
                 try 
                     SendFun(Target, BinBody)
